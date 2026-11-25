@@ -14,7 +14,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "impact-analyser": "./bin/impact-analyser.js"
+    "impact-analyser": "bin/impact-analyser.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
