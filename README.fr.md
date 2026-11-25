@@ -1,6 +1,6 @@
 # impact-analyser
 
-[English](README.md) · **Français** · [Documentation complète](docs/index.html?lang=fr)
+[English](README.md) · **Français** · [Documentation complète](https://developement-tools.github.io/impact-analyser/?lang=fr)
 
 Cartographie les routes et les composants d’une app **Next.js** ou **Nuxt** : où chaque composant est utilisé, avec quelles variantes, et quelles pages une modification peut affecter — avant de la faire.
 
