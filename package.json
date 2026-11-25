@@ -1,6 +1,6 @@
 {
   "name": "impact-analyser",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Map the pages and components of a Next.js or Nuxt app and see which routes a change impacts.",
   "author": "Sébastien Blache",
   "repository": {
