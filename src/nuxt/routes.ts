@@ -132,13 +132,27 @@ export function collectNuxtRoutes(ctx: NuxtContext): NuxtRoutes {
     roles[id(mw.file)] = { role: 'middleware', name, global: true };
     globalWrappers.push(id(mw.file));
   }
-  const appVue = major > 2 ? ['app.vue', 'app.tsx', 'app.jsx'].map((f) => path.join(srcDir, f)).find((f) => fs.existsSync(f)) : undefined;
+  // Server (Nitro) plugins and middleware run for every request: pages and API routes.
+  const serverWrappers: string[] = [];
+  for (const file of ctx.serverPlugins) {
+    roles[id(file)] = { role: 'server-plugin', name: path.basename(file).replace(/\.[^.]+$/, '') };
+    serverWrappers.push(id(file));
+  }
+  for (const file of ctx.serverMiddleware) {
+    roles[id(file)] = { role: 'server-middleware', name: path.basename(file).replace(/\.[^.]+$/, '') };
+    serverWrappers.push(id(file));
+  }
+  globalWrappers.unshift(...serverWrappers);
+
+  // app.vue / error.vue: from the app, else from the first layer providing one.
+  const srcDirs = ctx.layers.map((l) => l.srcDir);
+  const firstFile = (names: string[]) => srcDirs.flatMap((d) => names.map((n) => path.join(d, n))).find((f) => fs.existsSync(f));
+  const appVue = major > 2 ? firstFile(['app.vue', 'app.tsx', 'app.jsx']) : undefined;
   if (appVue) {
     roles[id(appVue)] = { role: 'app' };
     globalWrappers.push(id(appVue));
   }
-  const errorPage =
-    major === 2 ? path.join(srcDir, 'layouts', 'error.vue') : ['error.vue', 'error.tsx'].map((f) => path.join(srcDir, f)).find((f) => fs.existsSync(f));
+  const errorPage = major === 2 ? path.join(srcDir, 'layouts', 'error.vue') : firstFile(['error.vue', 'error.tsx']);
   if (errorPage && fs.existsSync(errorPage)) {
     roles[id(errorPage)] = { role: 'error' };
     globalWrappers.push(id(errorPage));
@@ -203,26 +217,35 @@ export function collectNuxtRoutes(ctx: NuxtContext): NuxtRoutes {
       walk(path.join(dir, name), ROUTE_GROUP.test(name) ? segments : [...segments, segmentOf(name, major)], parents);
     }
   };
-  if (ctx.pagesDir) walk(ctx.pagesDir, [], []);
-  else if (appVue) {
+  // Pages of every layer; for the same URL, the layer with the highest priority wins.
+  for (const dir of ctx.pagesDirs) {
+    const before = routes.length;
+    walk(dir, [], []);
+    const added = routes.splice(before);
+    const taken = new Set(routes.map((r) => `${r.kind}|${r.path}`));
+    for (const r of added) if (!taken.has(`${r.kind}|${r.path}`)) routes.push(r);
+  }
+  if (ctx.pagesDirs.length === 0 && appVue) {
     // No pages/: app.vue is the only page.
     routes.push({ router: 'nuxt', kind: 'page', path: '/', file: id(appVue), wrappers: globalWrappers.filter((w) => w !== id(appVue)) });
   }
 
   // ------------------------------------------------------------ server/api, server/routes
-  if (ctx.serverDir) {
+  for (const serverDir of ctx.serverDirs) {
     const walkServer = (dir: string, segments: string[]): void => {
       for (const entry of listDir(dir)) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) walkServer(full, [...segments, entry.name]);
         else if (entry.isFile() && SERVER_EXT.test(entry.name) && !entry.name.endsWith('.d.ts')) {
           const stem = entry.name.replace(/\.[^.]+$/, '').replace(HTTP_METHOD, '');
-          routes.push({ router: 'nuxt', kind: 'api', path: urlOf([...segments, stem === 'index' ? '' : stem]), file: id(full), wrappers: [] });
+          const url = urlOf([...segments, stem === 'index' ? '' : stem]);
+          // Same API route in several layers: the first (highest priority) wins.
+          if (!routes.some((r) => r.kind === 'api' && r.path === url)) routes.push({ router: 'nuxt', kind: 'api', path: url, file: id(full), wrappers: [...serverWrappers] });
         }
       }
     };
-    walkServer(path.join(ctx.serverDir, 'api'), ['api']);
-    walkServer(path.join(ctx.serverDir, 'routes'), []);
+    walkServer(path.join(serverDir, 'api'), ['api']);
+    walkServer(path.join(serverDir, 'routes'), []);
   }
 
   return { routes, roles };

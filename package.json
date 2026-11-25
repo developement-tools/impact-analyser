@@ -56,6 +56,8 @@
   },
   "dependencies": {
     "@vue/compiler-sfc": "^3.5.46",
+    "pug-lexer": "^5.0.1",
+    "pug-parser": "^6.0.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {

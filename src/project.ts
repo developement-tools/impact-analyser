@@ -24,6 +24,8 @@ export interface ProjectLayout {
   framework: FrameworkInfo;
   /** Nuxt projects only: directories, auto-imported components and composables. */
   nuxt?: NuxtContext;
+  /** Folders outside the root whose files are part of the project (Nuxt layers: `extends: ['../base']`). */
+  extraRoots?: string[];
 }
 
 export const isDir = (p: string): boolean => {
@@ -49,7 +51,7 @@ export function loadProject(rootInput: string, options: LoadProjectOptions = {})
 
   if (framework.name === 'nuxt') {
     const nuxt = loadNuxtContext(root, framework);
-    if (!nuxt.pagesDir && !fs.existsSync(path.join(nuxt.srcDir, 'app.vue'))) {
+    if (!nuxt.pagesDir && !nuxt.layers.some((l) => fs.existsSync(path.join(l.srcDir, 'app.vue')))) {
       throw new Error(`No pages/ directory nor app.vue found in ${nuxt.srcDir}`);
     }
     return {
@@ -60,6 +62,7 @@ export function loadProject(rootInput: string, options: LoadProjectOptions = {})
       compilerOptions: nuxtCompilerOptions(nuxt, path.join(root, '.nuxt'), readCompilerOptions(root)),
       framework,
       nuxt,
+      ...(nuxt.extraRoots.length && { extraRoots: nuxt.extraRoots }),
     };
   }
 

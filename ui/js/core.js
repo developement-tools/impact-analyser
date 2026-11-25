@@ -126,7 +126,9 @@ export function componentHref(id, params = {}) {
   return withQuery(`${PATHS.components}/${encodeURIComponent(c.name)}`, { in: homonyms.length > 1 ? c.module : undefined, ...params });
 }
 
-export const fileHref = (id) => `/files/${encodePath(id)}`;
+/** `..` segments (files of a layer outside the project) would be resolved by the browser: written `_parent_` in URLs. */
+export const fileHref = (id) => `/files/${encodePath(id.split('/').map((p) => (p === '..' ? '_parent_' : p)).join('/'))}`;
+export const fileIdFromUrl = (parts) => parts.map((p) => (p === '_parent_' ? '..' : p)).join('/');
 export const helpHref = (term) => (term ? `${PATHS.reference}/${encodeURIComponent(term)}` : PATHS.reference);
 
 /** Client-side navigation (History API); main.js re-renders on `app:navigate`. */
@@ -325,8 +327,18 @@ export function clientBadge(isClient) {
     : h('span', { class: 'chip server', title: t('badge.server.tip') }, t('badge.server'));
 }
 
+/** Absolute path of a project file, `..` resolved: /app/../shared/x.vue -> /shared/x.vue. */
+function absolutePath(id) {
+  const out = [];
+  for (const part of `${state.graph.root}/${id}`.split('/')) {
+    if (part === '..') out.pop();
+    else if (part !== '.') out.push(part);
+  }
+  return out.join('/');
+}
+
 export function editorHref(id, line = 1) {
-  const abs = `${state.graph.root}/${id}`;
+  const abs = absolutePath(id);
   const enc = encodeURI(abs);
   switch (state.config.editor) {
     case 'none':

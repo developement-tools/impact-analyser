@@ -189,3 +189,85 @@ describe('Nuxt 2 (fixture)', () => {
     expect(g.unreachable).toEqual(['components/Unused.vue']);
   });
 });
+
+describe('Nuxt layers, Nitro auto-imports, <component :is>, Pug (fixture nuxt-layers)', () => {
+  const LAYERS = path.join(HERE, 'fixtures/nuxt-layers/app');
+  let g: ProjectGraph;
+  beforeAll(() => {
+    g = analyze(LAYERS);
+  });
+  const usagesOf = (graph: ProjectGraph, name: string) => comp(graph, name)!.usages.map((u) => `${u.module}:${u.line} ${u.tag}`).sort();
+
+  it('collects pages of every layer; the app overrides a layer page with the same URL', () => {
+    expect(g.routes.filter((r) => r.kind === 'page').map((r) => `${r.path} ${r.file}`)).toEqual([
+      '/ app/pages/index.vue',
+      '/dynamic app/pages/dynamic.vue',
+      '/legal layers/base/app/pages/legal.vue', // from layers/base
+      '/pug app/pages/pug.vue',
+      '/render app/pages/render.vue',
+      '/terms app/pages/terms.vue', // the app's, not layers/base's
+    ]);
+    // The overridden layer page is never served.
+    expect(g.unreachable).toEqual(['layers/base/app/pages/terms.vue']);
+    // Layout coming from a layer.
+    expect(page(g, '/')!.wrappers).toContain('layers/base/app/layouts/default.vue');
+  });
+
+  it('indexes components of auto layers and of local layers outside the project (extends: ../shared-layer)', () => {
+    expect(comp(g, 'UiAlert')!.module).toBe('layers/base/app/components/ui/Alert.vue');
+    expect(comp(g, 'SharedFooter')!.module).toBe('../shared-layer/app/components/SharedFooter.vue');
+    expect(usagesOf(g, 'SharedFooter')).toContain('layers/base/app/layouts/default.vue:4 SharedFooter');
+    expect(pagesOf(componentImpact(g, comp(g, 'SharedFooter')!.id).routes)).toEqual(['/', '/dynamic', '/legal', '/pug', '/render', '/terms']);
+  });
+
+  it('links server files to Nitro auto-imports (server/utils of every layer), server middleware wraps every route', () => {
+    expect(g.modules['server/api/items.ts']!.imports.map((e) => e.to)).toEqual(['server/utils/db.ts']);
+    expect(g.modules['server/middleware/log.ts']!.imports.map((e) => e.to)).toEqual(['../shared-layer/server/utils/shared.ts']);
+    expect(g.roles['server/middleware/log.ts']).toEqual({ role: 'server-middleware', name: 'log' });
+    expect(g.routes.find((r) => r.path === '/api/items')!.wrappers).toEqual(['server/middleware/log.ts']);
+    expect(page(g, '/pug')!.wrappers[0]).toBe('server/middleware/log.ts');
+    // App auto-imports are not available in server files, and the other way round.
+    expect(g.modules['app/pages/pug.vue']!.imports.map((e) => e.to)).toContain('layers/base/app/composables/useToast.ts');
+  });
+
+  it('resolves <component :is> (literal, variable, condition) and resolveComponent() in render functions', () => {
+    expect(usagesOf(g, 'UiAlert')).toEqual(
+      expect.arrayContaining([
+        'app/pages/dynamic.vue:9 component', // :is="'UiAlert'"
+        'app/pages/dynamic.vue:10 component', // :is="ok ? Footer : 'UiAlert'"
+        "app/pages/render.vue:3 resolveComponent('UiAlert')", // h(resolveComponent('UiAlert'))
+      ]),
+    );
+    // `const Footer = resolveComponent('SharedFooter')` used as :is="… Footer …".
+    expect(usagesOf(g, 'SharedFooter')).toContain('app/pages/dynamic.vue:10 component');
+    const literal = comp(g, 'UiAlert')!.usages.find((u) => u.module.endsWith('dynamic.vue') && u.line === 9)!;
+    expect(literal.props.find((p) => p.name === 'tone')).toMatchObject({ value: 'warning' });
+  });
+
+  it('parses Pug templates: tags, kebab-case, props, events and template identifiers', () => {
+    const pug = comp(g, 'UiAlert')!.usages.find((u) => u.module === 'app/pages/pug.vue')!;
+    expect(pug.line).toBe(7);
+    expect(pug.props).toEqual([
+      { name: 'tone', kind: 'literal', value: 'success', type: 'string' },
+      { name: 'dismissible', kind: 'literal', value: 'true', type: 'boolean' },
+      { name: 'onClose', kind: 'expression', value: "show('closed')" },
+    ]);
+    expect(usagesOf(g, 'SharedFooter')).toContain('app/pages/pug.vue:8 shared-footer');
+  });
+
+  it('gives the same result without .nuxt (conventions only)', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'impact-analyser-layers-'));
+    fs.cpSync(path.join(HERE, 'fixtures/nuxt-layers'), tmp, { recursive: true });
+    fs.rmSync(path.join(tmp, 'app/.nuxt'), { recursive: true, force: true });
+    try {
+      const conventions = analyze(path.join(tmp, 'app'));
+      expect(conventions.nuxt).toEqual({ generated: false });
+      const summary = (graph: ProjectGraph) => Object.values(graph.components).map((c) => `${c.name}:${c.module}:${c.usages.length}`).sort();
+      expect(summary(conventions)).toEqual(summary(g));
+      expect(conventions.modules['server/api/items.ts']!.imports.map((e) => e.to)).toEqual(['server/utils/db.ts']);
+      expect(conventions.unreachable).toEqual(g.unreachable);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});

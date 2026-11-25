@@ -18,6 +18,8 @@ const NOT_APP_CODE = /\.(?:test|spec|stories)\.[cm]?[jt]sx?$|\.d\.ts$/;
 function listProjectFiles(project: ProjectLayout, inScope: Scope): string[] {
   const files: string[] = [];
   let dirs: string[] = [];
+  // Files at the root of the project or of a layer are config files (nuxt.config.ts…).
+  const configRoots = new Set([project.root, ...(project.nuxt?.layers.map((l) => l.rootDir) ?? [])]);
   let currentRoot = '';
   const walkRoot = (dir: string) => {
     currentRoot = dir;
@@ -31,16 +33,19 @@ function listProjectFiles(project: ProjectLayout, inScope: Scope): string[] {
         if (!IGNORED_DIRS.has(entry.name) && !dirs.slice(1).includes(full) && inScope(toId(project.root, full))) walk(full, depth + 1);
       } else if (entry.isFile()) {
         // Without src/, files at the project root are config files (next.config.ts, nuxt.config.ts…).
-        if (depth === 0 && currentRoot === project.root) continue;
+        if (depth === 0 && configRoots.has(currentRoot)) continue;
         if (NOT_APP_CODE.test(entry.name) || moduleKindOf(entry.name) === 'asset') continue;
         const id = toId(project.root, full);
         if (inScope(id)) files.push(id);
       }
     }
   };
-  // Nuxt 4: server/ and shared/ live next to app/, at the root.
-  const extra = project.nuxt && project.srcDir !== project.root ? ['server', 'shared'].map((d) => path.join(project.root, d)) : [];
-  dirs = [project.srcDir, ...extra.filter((d) => fs.existsSync(d))];
+  // Nuxt: source folders of every layer, plus server/ and shared/ next to app/ (Nuxt 4).
+  const nuxt = project.nuxt;
+  const extra = nuxt
+    ? [...nuxt.layers.flatMap((l) => [l.srcDir, path.join(l.rootDir, 'server'), path.join(l.rootDir, 'shared')]), ...nuxt.serverDirs]
+    : [];
+  dirs = [...new Set([project.srcDir, ...extra])].filter((d) => fs.existsSync(d));
   for (const dir of dirs) walkRoot(dir);
   return [...new Set(files)].sort();
 }
@@ -90,7 +95,7 @@ export function analyze(root: string, options: AnalyzeOptions = {}): ProjectGrap
     scope: { include: options.include?.length ? options.include : DEFAULT_INCLUDE, exclude: options.exclude ?? [] },
     excluded,
     roles: nuxtRoutes ? pick(nuxtRoutes.roles, routes) : nextRoles(routes, project.pageExtensions),
-    ...(project.nuxt && { nuxt: { generated: project.nuxt.generated } }),
+    ...(project.nuxt && { nuxt: { generated: project.nuxt.generated, ...(project.nuxt.remoteLayers.length && { remoteLayers: project.nuxt.remoteLayers }) } }),
   };
 }
 

@@ -165,5 +165,5 @@ export interface ProjectGraph {
   /** Role of every file wrapping routes (layouts, app.vue, middleware…). */
   roles: Record<string, WrapperRole>;
   /** Nuxt only. `generated`: names read from .nuxt (nuxi prepare / dev); otherwise inferred from Nuxt conventions. */
-  nuxt?: { generated: boolean };
+  nuxt?: { generated: boolean; remoteLayers?: string[] };
 }

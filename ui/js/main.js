@@ -4,6 +4,7 @@ import {
   componentHref,
   fetchJson,
   fileHref,
+  fileIdFromUrl,
   helpHref,
   navigate,
   PATHS,
@@ -94,7 +95,7 @@ function currentRoute() {
       return { view: 'component', arg: match?.id ?? name, params };
     }
     case 'files':
-      return { view: 'file', arg: rest.join('/'), params };
+      return { view: 'file', arg: fileIdFromUrl(rest), params };
     case 'dead-code':
       return { view: 'unused', arg: '', params };
     case 'reference':

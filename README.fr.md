@@ -100,7 +100,7 @@ Nuxt écrit la résolution des composants et composables auto-importés dans `.n
 ```
 
 ```json
-{ "appUrl": "http://localhost:3000", "exclude": ["layers/**"] }
+{ "appUrl": "http://localhost:3000", "exclude": ["**/__mocks__"] }
 ```
 
 | Option | Défaut | Quand la définir |
@@ -110,7 +110,7 @@ Nuxt écrit la résolution des composants et composables auto-importés dans `.n
 
 Sans `.nuxt/`, les noms suivent les conventions de Nuxt et un avertissement s’affiche : lancez `nuxi prepare` (Nuxt 3/4) ou `nuxt dev` (Nuxt 2). Lus dans `nuxt.config` (valeurs statiques) : `srcDir`, `buildDir`, `css`, `compatibilityVersion`, et pour Nuxt 2 `components`, `plugins`, `router.middleware`.
 
-Analysé : `app/` (Nuxt 4) ou la racine ; `pages/` avec `[id]`, `[...slug]`, `(groupe)`, routes imbriquées, `_id` de Nuxt 2 ; `app.vue`, page d’erreur, layouts (`definePageMeta({ layout })`, `layout: false`, hérité), middleware de route, plugins, CSS globales ; `server/api` et `server/routes` ; templates `.vue` et leurs props (`:prop`, `@event`, `v-model`, balises en kebab-case) ; composants auto-importés (`base/Button.vue` → `<BaseButton>`, `Lazy`, `.client`), composables et utils ; alias `~`, `@`, `~~`, `@@`, `#shared`. Pas encore couverts : layers, auto-imports de `server/utils`, `<component :is>`, Pug.
+Analysé : `app/` (Nuxt 4) ou la racine ; **layers** (`layers/*` et `extends` locaux, y compris hors du projet ; l’app l’emporte en cas de conflit) ; `pages/` avec `[id]`, `[...slug]`, `(groupe)`, routes imbriquées, `_id` de Nuxt 2 ; `app.vue`, page d’erreur, layouts (`definePageMeta({ layout })`, `layout: false`, hérité), middleware de route, plugins, CSS globales ; Nitro : `server/api`, `server/routes`, auto-imports de `server/utils`, `server/middleware` et `server/plugins` (appliqués à toutes les routes) ; templates `.vue` (HTML ou **Pug**) et leurs props (`:prop`, `@event`, `v-model`, balises en kebab-case) ; `<component :is>` et `resolveComponent()` ; composants auto-importés (`base/Button.vue` → `<BaseButton>`, `Lazy`, `.client`), composables et utils ; alias `~`, `@`, `~~`, `@@`, `#shared`, `#layers/<nom>`. Non analysées : les layers issues de paquets npm ou de dépôts git (elles sont signalées dans l’explorateur).
 
 </details>
 

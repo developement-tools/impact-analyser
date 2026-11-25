@@ -161,6 +161,16 @@ export async function serve(options: ServeOptions): Promise<UiServer> {
         schedule(name !== undefined && CONFIG_NAMES.has(name));
       }),
     );
+    // Local Nuxt layers outside the project (extends: ['../base']).
+    for (const extra of project.extraRoots ?? []) {
+      watchers.push(
+        fs.watch(extra, { recursive: true }, (_event, filename) => {
+          const name = filename?.toString();
+          if (name && WATCH_IGNORED.test(name)) return;
+          schedule(false);
+        }),
+      );
+    }
   }
 
   const sendJson = (res: http.ServerResponse, status: number, data: unknown) => {

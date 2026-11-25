@@ -100,7 +100,7 @@ Nuxt writes the resolution of auto-imported components and composables in `.nuxt
 ```
 
 ```json
-{ "appUrl": "http://localhost:3000", "exclude": ["layers/**"] }
+{ "appUrl": "http://localhost:3000", "exclude": ["**/__mocks__"] }
 ```
 
 | Option | Default | When to set it |
@@ -110,7 +110,7 @@ Nuxt writes the resolution of auto-imported components and composables in `.nuxt
 
 Without `.nuxt/`, names follow Nuxt conventions and a warning is shown: run `nuxi prepare` (Nuxt 3/4) or `nuxt dev` (Nuxt 2). Read from `nuxt.config` (static values): `srcDir`, `buildDir`, `css`, `compatibilityVersion`, and for Nuxt 2 `components`, `plugins`, `router.middleware`.
 
-Analysed: `app/` (Nuxt 4) or the root; `pages/` with `[id]`, `[...slug]`, `(group)`, nested routes, Nuxt 2 `_id`; `app.vue`, error page, layouts (`definePageMeta({ layout })`, `layout: false`, inherited), route middleware, plugins, global CSS; `server/api` and `server/routes`; `.vue` templates and their props (`:prop`, `@event`, `v-model`, kebab-case tags); auto-imported components (`base/Button.vue` → `<BaseButton>`, `Lazy`, `.client`), composables and utils; aliases `~`, `@`, `~~`, `@@`, `#shared`. Not covered yet: layers, `server/utils` auto-imports, `<component :is>`, Pug.
+Analysed: `app/` (Nuxt 4) or the root; **layers** (`layers/*` and local `extends`, also outside the project; the app wins on conflicts); `pages/` with `[id]`, `[...slug]`, `(group)`, nested routes, Nuxt 2 `_id`; `app.vue`, error page, layouts (`definePageMeta({ layout })`, `layout: false`, inherited), route middleware, plugins, global CSS; Nitro: `server/api`, `server/routes`, `server/utils` auto-imports, `server/middleware` and `server/plugins` (applied to every route); `.vue` templates (HTML or **Pug**) and their props (`:prop`, `@event`, `v-model`, kebab-case tags); `<component :is>` and `resolveComponent()`; auto-imported components (`base/Button.vue` → `<BaseButton>`, `Lazy`, `.client`), composables and utils; aliases `~`, `@`, `~~`, `@@`, `#shared`, `#layers/<name>`. Not analysed: layers from npm packages or git repositories (they are listed in the explorer).
 
 </details>
 

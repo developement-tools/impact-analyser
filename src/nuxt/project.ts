@@ -19,15 +19,33 @@ export interface NuxtAutoImport {
   export: string;
 }
 
+/** A Nuxt layer: the app itself, a folder of `layers/`, or a local `extends` entry. */
+export interface NuxtLayer {
+  /** Folder name (`base` for layers/base), `app` for the project itself. */
+  name: string;
+  rootDir: string;
+  srcDir: string;
+  /** Contents of its nuxt.config (read statically). */
+  config: string;
+}
+
 export interface NuxtContext {
   /** 2, 3 or 4. Unknown versions are treated as 3. */
   major: number;
   rootDir: string;
   srcDir: string;
-  /** Directory of the Nitro server routes (server/api, server/routes), if any. */
-  serverDir?: string;
+  /** Layers by priority: the app first, then `layers/*`, then `extends`. */
+  layers: NuxtLayer[];
+  /** `extends` entries that are not local folders (npm packages, git repositories): not analysed. */
+  remoteLayers: string[];
+  /** Layer folders outside the project root (local `extends: ['../base']`). */
+  extraRoots: string[];
+  /** pages/ folders of every layer, by priority. */
+  pagesDirs: string[];
+  /** server/ folders of every layer (Nitro: api, routes, middleware, plugins, utils). */
+  serverDirs: string[];
+  /** pages/ folder of the app (or of the first layer having one). */
   pagesDir?: string;
-  layoutsDir?: string;
   /** Auto-imported components by name (Lazy* variants excluded). */
   components: Map<string, NuxtComponent>;
   /** Component name of each component file. */
@@ -42,6 +60,12 @@ export interface NuxtContext {
   plugins: string[];
   /** Global stylesheets of nuxt.config `css: [...]`, loaded on every route. */
   globalCss: string[];
+  /** Nitro auto-imports (server/utils, shared/utils), available in server files only. */
+  serverImports: Map<string, NuxtAutoImport>;
+  /** Nitro middleware (server/middleware): run on every request. */
+  serverMiddleware: string[];
+  /** Nitro plugins (server/plugins): run when the server starts, for every request. */
+  serverPlugins: string[];
   /** `.nuxt` type files were found: names come from Nuxt itself rather than from conventions. */
   generated: boolean;
 }
@@ -83,9 +107,9 @@ function walkFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** A local project file (not node_modules, inside the project). */
-const isProjectFile = (rootDir: string, file: string) =>
-  !file.includes(`${path.sep}node_modules${path.sep}`) && !path.relative(rootDir, file).startsWith('..');
+/** A local project file: not in node_modules, inside the project or one of its local layers. */
+const isProjectFile = (roots: string | string[], file: string) =>
+  !file.includes(`${path.sep}node_modules${path.sep}`) && [roots].flat().some((root) => !path.relative(root, file).startsWith('..'));
 
 function resolveWithExtensions(base: string): string | undefined {
   for (const ext of RESOLVE_EXT) if (isFile(base + ext)) return base + ext;
@@ -116,7 +140,7 @@ function resolveSrcDir(rootDir: string, major: number, config: string): string {
 // ------------------------------------------------------------------ components
 
 /** Parses .nuxt/components.d.ts (Nuxt 3/4) or .nuxt/components/index.js (Nuxt 2). */
-function readGeneratedComponents(rootDir: string, buildDir: string): Map<string, NuxtComponent> | undefined {
+function readGeneratedComponents(rootDir: string | string[], buildDir: string): Map<string, NuxtComponent> | undefined {
   const sources = [
     path.join(buildDir, 'components.d.ts'),
     path.join(buildDir, 'types', 'components.d.ts'),
@@ -167,7 +191,7 @@ function conventionComponents(srcDir: string, pathPrefix: boolean): Map<string, 
 // ------------------------------------------------------------------ auto-imports
 
 /** Parses .nuxt/imports.d.ts: `export { useCart, a as b } from '../composables/useCart'`. */
-function readGeneratedImports(rootDir: string, buildDir: string): Map<string, NuxtAutoImport> | undefined {
+function readGeneratedImports(rootDir: string | string[], buildDir: string): Map<string, NuxtAutoImport> | undefined {
   const source = path.join(buildDir, 'imports.d.ts');
   const text = read(source);
   if (!text) return undefined;
@@ -182,6 +206,20 @@ function readGeneratedImports(rootDir: string, buildDir: string): Map<string, Nu
     for (const el of statement.exportClause.elements) {
       found.set(el.name.text, { file, export: (el.propertyName ?? el.name).text });
     }
+  }
+  return found;
+}
+
+/** .nuxt/types/nitro-imports.d.ts: `const useDb: typeof import('../../server/utils/db').useDb`. */
+function readGeneratedServerImports(roots: string[], buildDir: string): Map<string, NuxtAutoImport> | undefined {
+  const source = path.join(buildDir, 'types', 'nitro-imports.d.ts');
+  const text = read(source);
+  if (!text) return undefined;
+  const found = new Map<string, NuxtAutoImport>();
+  for (const [, name, spec, exported] of text.matchAll(/const\s+(\w+)\s*:\s*typeof\s+import\(\s*['"]([^'"]+)['"]\s*\)\s*(?:\.(\w+)|\[['"](\w+)['"]\])/g)) {
+    if (!name || !spec || !spec.startsWith('.')) continue;
+    const file = resolveWithExtensions(path.resolve(path.dirname(source), spec));
+    if (file && isProjectFile(roots, file)) found.set(name, { file, export: exported ?? name });
   }
   return found;
 }
@@ -299,7 +337,7 @@ function globalCssOf(srcDir: string, rootDir: string, config: string): string[] 
 const ALIAS_KEYS = ['~', '@', '~~', '@@', '#shared'];
 
 /** tsconfig generated by Nuxt (.nuxt/tsconfig*.json), else the project's, plus Nuxt's default aliases. */
-export function nuxtCompilerOptions(ctx: { rootDir: string; srcDir: string }, buildDir: string, fallback: ts.CompilerOptions): ts.CompilerOptions {
+export function nuxtCompilerOptions(ctx: { rootDir: string; srcDir: string; layers?: NuxtLayer[] }, buildDir: string, fallback: ts.CompilerOptions): ts.CompilerOptions {
   let options: ts.CompilerOptions = { ...fallback };
   for (const name of ['tsconfig.app.json', 'tsconfig.json']) {
     const file = path.join(buildDir, name);
@@ -320,59 +358,152 @@ export function nuxtCompilerOptions(ctx: { rootDir: string; srcDir: string }, bu
     paths[alias] ??= [targets[alias]!];
     paths[`${alias}/*`] ??= [`${targets[alias]!}/*`];
   }
+  // Nuxt 3.16+: `#layers/<name>` points to the root of each layer.
+  for (const layer of ctx.layers?.slice(1) ?? []) {
+    paths[`#layers/${layer.name}`] ??= [layer.rootDir];
+    paths[`#layers/${layer.name}/*`] ??= [`${layer.rootDir}/*`];
+  }
   return { ...options, paths, pathsBasePath: ctx.rootDir } as ts.CompilerOptions;
 }
 
 // ------------------------------------------------------------------ entry
 
+/** `extends: '../base'` / `extends: ['./a', 'github:org/b', '@acme/layer']` of a nuxt.config. */
+function extendsOf(config: string): string[] {
+  const value = config.match(/\bextends\s*:\s*(\[[\s\S]*?\]|['"`][^'"`]+['"`])/)?.[1] ?? '';
+  return [...value.matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]!);
+}
+const isLocalLayer = (entry: string) => /^(?:\.{1,2}\/|\/|~~\/|@@\/)/.test(entry);
+
+/** App, then `layers/*` (Nuxt 3.12+, alphabetical), then local `extends` entries (recursively). */
+function discoverLayers(rootDir: string, major: number, appConfig: string): { layers: NuxtLayer[]; remote: string[] } {
+  const layers: NuxtLayer[] = [];
+  const remote: string[] = [];
+  const seen = new Set<string>();
+  const add = (dir: string, name: string, config: string) => {
+    const real = path.resolve(dir);
+    if (seen.has(real)) return false;
+    seen.add(real);
+    layers.push({ name, rootDir: real, srcDir: resolveSrcDir(real, major, config), config });
+    return true;
+  };
+  const visitExtends = (layer: NuxtLayer) => {
+    for (const entry of extendsOf(layer.config)) {
+      if (!isLocalLayer(entry)) {
+        remote.push(entry);
+        continue;
+      }
+      const dir = path.resolve(layer.rootDir, entry.replace(/^(?:~~|@@)\//, `${rootDir}/`));
+      if (!isDir(dir)) continue;
+      if (add(dir, path.basename(dir), findConfig(dir) ?? '')) visitExtends(layers[layers.length - 1]!);
+    }
+  };
+
+  add(rootDir, 'app', appConfig);
+  if (major > 2) {
+    const auto = path.join(rootDir, 'layers');
+    if (isDir(auto)) {
+      for (const entry of fs.readdirSync(auto, { withFileTypes: true }).filter((e) => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
+        const dir = path.join(auto, entry.name);
+        if (add(dir, entry.name, findConfig(dir) ?? '')) visitExtends(layers[layers.length - 1]!);
+      }
+    }
+  }
+  visitExtends(layers[0]!);
+  return { layers, remote };
+}
+
+/** Same name in several layers: the layer with the highest priority (first) wins. */
+function mergeByPriority<T>(layers: NuxtLayer[], read: (layer: NuxtLayer) => Map<string, T>): Map<string, T> {
+  const merged = new Map<string, T>();
+  for (const layer of layers) for (const [key, value] of read(layer)) if (!merged.has(key)) merged.set(key, value);
+  return merged;
+}
+
+const serverDirOf = (layer: NuxtLayer) => [path.join(layer.rootDir, 'server'), path.join(layer.srcDir, 'server')].find(isDir);
+const topLevelScripts = (dir: string) => {
+  if (!isDir(dir)) return [];
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((e) => (e.isDirectory() ? resolveWithExtensions(path.join(dir, e.name, 'index')) : e.isFile() && SCRIPT_EXT.test(e.name) && !e.name.endsWith('.d.ts') ? path.join(dir, e.name) : undefined))
+    .filter((f): f is string => Boolean(f));
+};
+
 export function loadNuxtContext(rootDir: string, framework: FrameworkInfo): NuxtContext {
   const config = findConfig(rootDir) ?? '';
   const major = framework.major && framework.major >= 2 ? framework.major : /compatibilityVersion\s*:\s*4/.test(config) ? 4 : 3;
-  const srcDir = resolveSrcDir(rootDir, major, config);
+  const { layers, remote } = discoverLayers(rootDir, major, config);
+  const app = layers[0]!;
+  const srcDir = app.srcDir;
+  const roots = layers.map((l) => l.rootDir);
+  const extraRoots = roots.filter((r) => path.relative(rootDir, r).startsWith('..'));
   const buildDir = path.join(rootDir, config.match(/\bbuildDir\s*:\s*['"`]([^'"`]+)['"`]/)?.[1] ?? '.nuxt');
-  const serverDir = [path.join(rootDir, 'server'), path.join(srcDir, 'server')].find(isDir);
-  const pagesDir = path.join(srcDir, 'pages');
-  const layoutsDir = path.join(srcDir, 'layouts');
 
   // Nuxt 2 registers components only with `components: true` (2.13+); folder prefixes since 2.15.
   const nuxt2Components = /\bcomponents\s*:\s*(?:true|\{|\[)/.test(config);
   const [, minor] = (framework.version?.match(/(\d+)\.(\d+)/) ?? []).map(Number);
   const pathPrefix = major > 2 || (minor ?? 15) >= 15;
 
-  const generatedComponents = readGeneratedComponents(rootDir, buildDir);
+  const generatedComponents = readGeneratedComponents(roots, buildDir);
   const components = new Map<string, NuxtComponent>();
   if (major > 2 || nuxt2Components || generatedComponents) {
     for (const [name, comp] of generatedComponents ?? []) components.set(name, comp);
     // Conventions complete the generated list: files added since the last `nuxt prepare` / `nuxt dev`.
     const known = new Set([...components.values()].map((c) => c.file));
-    for (const [name, comp] of conventionComponents(srcDir, pathPrefix)) {
+    for (const [name, comp] of mergeByPriority(layers, (l) => conventionComponents(l.srcDir, pathPrefix))) {
       if (!components.has(name) && !known.has(comp.file)) components.set(name, comp);
     }
   }
   const componentNames = new Map<string, string>();
   for (const comp of components.values()) if (!componentNames.has(comp.file)) componentNames.set(comp.file, comp.name);
 
-  const generatedImports = major > 2 ? readGeneratedImports(rootDir, buildDir) : undefined;
+  const generatedImports = major > 2 ? readGeneratedImports(roots, buildDir) : undefined;
   const imports = new Map<string, NuxtAutoImport>(generatedImports ?? []);
   if (major > 2) {
-    const dirs = [path.join(srcDir, 'composables'), path.join(srcDir, 'utils'), path.join(rootDir, 'shared', 'utils'), path.join(rootDir, 'shared', 'types')];
-    for (const [name, entry] of conventionImports(dirs)) if (!imports.has(name)) imports.set(name, entry);
+    const conventional = mergeByPriority(layers, (l) =>
+      conventionImports([path.join(l.srcDir, 'composables'), path.join(l.srcDir, 'utils'), path.join(l.rootDir, 'shared', 'utils'), path.join(l.rootDir, 'shared', 'types')]),
+    );
+    for (const [name, entry] of conventional) if (!imports.has(name)) imports.set(name, entry);
   }
+
+  // Nitro (server/): auto-imported utils, middleware and plugins of every layer.
+  const serverDirs = layers.map(serverDirOf).filter((d): d is string => Boolean(d));
+  const serverImports = new Map<string, NuxtAutoImport>(major > 2 ? (readGeneratedServerImports(roots, buildDir) ?? []) : []);
+  if (major > 2) {
+    const conventional = mergeByPriority(layers, (l) => {
+      const server = serverDirOf(l);
+      return conventionImports([...(server ? [path.join(server, 'utils')] : []), path.join(l.rootDir, 'shared', 'utils')]);
+    });
+    for (const [name, entry] of conventional) if (!serverImports.has(name)) serverImports.set(name, entry);
+  }
+
+  const pagesDirs = layers.map((l) => path.join(l.srcDir, 'pages')).filter(isDir);
+  const layouts = mergeByPriority(layers, (l) => layoutsOf(isDir(path.join(l.srcDir, 'layouts')) ? path.join(l.srcDir, 'layouts') : undefined, major));
+  const middleware = mergeByPriority(layers, (l) => middlewareOf(path.join(l.srcDir, 'middleware'), major, l.config));
+  const plugins = [...new Set(layers.flatMap((l) => pluginsOf(l.srcDir, l.rootDir, major, l.config)))];
+  const globalCss = [...new Set(layers.flatMap((l) => globalCssOf(l.srcDir, l.rootDir, l.config)))];
 
   return {
     major,
     rootDir,
     srcDir,
-    ...(serverDir && { serverDir }),
-    ...(isDir(pagesDir) && { pagesDir }),
-    ...(isDir(layoutsDir) && { layoutsDir }),
+    layers,
+    remoteLayers: remote,
+    extraRoots,
+    pagesDirs,
+    serverDirs,
+    ...(pagesDirs[0] && { pagesDir: pagesDirs[0] }),
     components,
     componentNames,
     imports,
-    layouts: layoutsOf(isDir(layoutsDir) ? layoutsDir : undefined, major),
-    middleware: middlewareOf(path.join(srcDir, 'middleware'), major, config),
-    plugins: pluginsOf(srcDir, rootDir, major, config),
-    globalCss: globalCssOf(srcDir, rootDir, config),
+    layouts,
+    middleware,
+    plugins,
+    globalCss,
+    serverImports,
+    serverMiddleware: serverDirs.flatMap((d) => topLevelScripts(path.join(d, 'middleware'))),
+    serverPlugins: serverDirs.flatMap((d) => topLevelScripts(path.join(d, 'plugins'))),
     generated: Boolean(generatedComponents || generatedImports),
   };
 }

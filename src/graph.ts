@@ -374,7 +374,8 @@ export function buildModuleGraph(project: ProjectLayout, entryIds: string[], inS
         continue;
       }
       const to = toId(root, res.file);
-      if (to.startsWith('..')) continue; // outside of the project
+      // Outside of the project, unless it belongs to one of its layers (extends: ['../base']).
+      if (to.startsWith('..') && !project.extraRoots?.some((r) => !path.relative(r, res.file).startsWith('..'))) continue;
       if (!inScope(to)) {
         // Out of the analysis scope (include / exclude): not followed, not linked.
         excluded.add(to);

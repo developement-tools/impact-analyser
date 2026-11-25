@@ -96,6 +96,7 @@ export function renderHome() {
     null,
     h('div', { class: 'page-head' }, h('h1', null, t('home.title')), h('p', { class: 'sub mono' }, g.root), scopeLine(g)),
     g.nuxt && !g.nuxt.generated && h('div', { class: 'note warn' }, t('nuxt.notGenerated')),
+    g.nuxt?.remoteLayers?.length > 0 && h('div', { class: 'note warn' }, t('nuxt.remoteLayers', { layers: g.nuxt.remoteLayers.join(', ') })),
     h(
       'div',
       { class: 'kpis' },

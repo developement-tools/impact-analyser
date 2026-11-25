@@ -392,7 +392,7 @@ npx impact-analyser routes                             <span class="c"># every r
 }</code></pre></div>
       <div class="code"><span class="lang-label">impact-analyser.config.json</span><pre><code>{
   <span class="k">"appUrl"</span>: <span class="s">"http://localhost:3000"</span>,
-  <span class="k">"exclude"</span>: [<span class="s">"layers/**"</span>]
+  <span class="k">"exclude"</span>: [<span class="s">"**/__mocks__"</span>]
 }</code></pre></div>
       <div class="note warn" data-l="en"><p>Without <code>.nuxt/</code> (never prepared, or Nuxt 2 never started), names are inferred from Nuxt conventions and the explorer and the AI map show a warning. Conventions cover default folders; run <code>nuxi prepare</code> (Nuxt 3/4) or <code>nuxt dev</code> (Nuxt 2) for exact results.</p></div>
       <div class="note warn" data-l="fr"><p>Sans <code>.nuxt/</code> (jamais préparé, ou Nuxt 2 jamais lancé), les noms sont déduits des conventions de Nuxt et l’explorateur comme la carte IA affichent un avertissement. Les conventions couvrent les dossiers par défaut ; lancez <code>nuxi prepare</code> (Nuxt 3/4) ou <code>nuxt dev</code> (Nuxt 2) pour un résultat exact.</p></div>
@@ -413,19 +413,21 @@ npx impact-analyser routes                             <span class="c"># every r
         <li>Source folder: <code>app/</code> in Nuxt 4, the root in Nuxt 2/3, or <code>srcDir</code> from <code>nuxt.config</code>.</li>
         <li><code>pages/</code>: <code>[id]</code>, <code>[[id]]</code>, <code>[...slug]</code>, route groups <code>(group)</code>, nested routes (<code>parent.vue</code> + <code>parent/</code>), Nuxt 2 <code>_id</code> / <code>_</code>; without <code>pages/</code>, <code>app.vue</code> is the only page.</li>
         <li>Wrappers of each page: <code>app.vue</code>, the error page (<code>error.vue</code>, Nuxt 2 <code>layouts/error.vue</code>), the layout (<code>default</code>, or <code>definePageMeta({ layout })</code> / Nuxt 2 <code>layout</code> option, <code>layout: false</code>, inherited from the parent page), route middleware (named, <code>.global</code>, Nuxt 2 <code>router.middleware</code>), plugins and global CSS.</li>
-        <li><code>server/api</code> and <code>server/routes</code> (HTTP method suffixes such as <code>[id].get.ts</code>).</li>
-        <li><code>.vue</code> files: <code>&lt;script&gt;</code> and <code>&lt;script setup&gt;</code> imports, components used in the template with their props (<code>variant="x"</code>, <code>:size</code>, <code>@click</code>, <code>v-bind</code>, <code>v-model</code>), PascalCase or kebab-case tags, Options API <code>components</code>.</li>
+        <li>Layers: <code>layers/*</code> (auto-registered) and local <code>extends</code> entries, also outside the project (<code>../base</code>): their pages, layouts, components, composables, middleware, plugins and server routes; the app wins when both define the same page or name. Layers from npm packages or git repositories are listed in the explorer but not analysed.</li>
+        <li>Nitro: <code>server/api</code> and <code>server/routes</code> (HTTP method suffixes such as <code>[id].get.ts</code>), <code>server/utils</code> auto-imports (server files only), <code>server/middleware</code> and <code>server/plugins</code> (applied to every route).</li>
+        <li><code>.vue</code> files (HTML or Pug templates): <code>&lt;script&gt;</code> and <code>&lt;script setup&gt;</code> imports, <code>&lt;component :is&gt;</code> and <code>resolveComponent()</code>, components used in the template with their props (<code>variant="x"</code>, <code>:size</code>, <code>@click</code>, <code>v-bind</code>, <code>v-model</code>), PascalCase or kebab-case tags, Options API <code>components</code>.</li>
         <li>Auto-imports: components (folder prefixes: <code>base/Button.vue</code> → <code>&lt;BaseButton&gt;</code>, <code>Lazy</code> prefix, <code>.client</code> / <code>.server</code>), composables and utils (<code>composables/</code>, <code>utils/</code>, <code>shared/utils</code>), <code>#components</code> and <code>#imports</code> imports.</li>
-        <li>Aliases <code>~</code>, <code>@</code>, <code>~~</code>, <code>@@</code>, <code>#shared</code>.</li>
+        <li>Aliases <code>~</code>, <code>@</code>, <code>~~</code>, <code>@@</code>, <code>#shared</code>, <code>#layers/&lt;name&gt;</code>.</li>
       </ul>
       <ul data-l="fr">
         <li>Dossier source : <code>app/</code> en Nuxt 4, la racine en Nuxt 2/3, ou le <code>srcDir</code> de <code>nuxt.config</code>.</li>
         <li><code>pages/</code> : <code>[id]</code>, <code>[[id]]</code>, <code>[...slug]</code>, groupes de routes <code>(groupe)</code>, routes imbriquées (<code>parent.vue</code> + <code>parent/</code>), <code>_id</code> / <code>_</code> de Nuxt 2 ; sans <code>pages/</code>, <code>app.vue</code> est la seule page.</li>
         <li>Enveloppes de chaque page : <code>app.vue</code>, la page d’erreur (<code>error.vue</code>, <code>layouts/error.vue</code> en Nuxt 2), le layout (<code>default</code>, ou <code>definePageMeta({ layout })</code> / option <code>layout</code> en Nuxt 2, <code>layout: false</code>, hérité de la page parente), les middleware de route (nommés, <code>.global</code>, <code>router.middleware</code> en Nuxt 2), les plugins et les CSS globales.</li>
-        <li><code>server/api</code> et <code>server/routes</code> (suffixes de méthode HTTP comme <code>[id].get.ts</code>).</li>
-        <li>Fichiers <code>.vue</code> : imports de <code>&lt;script&gt;</code> et <code>&lt;script setup&gt;</code>, composants utilisés dans le template avec leurs props (<code>variant="x"</code>, <code>:size</code>, <code>@click</code>, <code>v-bind</code>, <code>v-model</code>), balises en PascalCase ou kebab-case, option <code>components</code> de l’Options API.</li>
+        <li>Layers : <code>layers/*</code> (enregistrées automatiquement) et entrées <code>extends</code> locales, y compris hors du projet (<code>../base</code>) : leurs pages, layouts, composants, composables, middleware, plugins et routes serveur ; l’app l’emporte quand les deux définissent la même page ou le même nom. Les layers issues de paquets npm ou de dépôts git sont signalées dans l’explorateur mais non analysées.</li>
+        <li>Nitro : <code>server/api</code> et <code>server/routes</code> (suffixes de méthode HTTP comme <code>[id].get.ts</code>), auto-imports de <code>server/utils</code> (fichiers serveur uniquement), <code>server/middleware</code> et <code>server/plugins</code> (appliqués à toutes les routes).</li>
+        <li>Fichiers <code>.vue</code> (templates HTML ou Pug) : imports de <code>&lt;script&gt;</code> et <code>&lt;script setup&gt;</code>, <code>&lt;component :is&gt;</code> et <code>resolveComponent()</code>, composants utilisés dans le template avec leurs props (<code>variant="x"</code>, <code>:size</code>, <code>@click</code>, <code>v-bind</code>, <code>v-model</code>), balises en PascalCase ou kebab-case, option <code>components</code> de l’Options API.</li>
         <li>Auto-imports : composants (préfixes de dossier : <code>base/Button.vue</code> → <code>&lt;BaseButton&gt;</code>, préfixe <code>Lazy</code>, <code>.client</code> / <code>.server</code>), composables et utils (<code>composables/</code>, <code>utils/</code>, <code>shared/utils</code>), imports <code>#components</code> et <code>#imports</code>.</li>
-        <li>Alias <code>~</code>, <code>@</code>, <code>~~</code>, <code>@@</code>, <code>#shared</code>.</li>
+        <li>Alias <code>~</code>, <code>@</code>, <code>~~</code>, <code>@@</code>, <code>#shared</code>, <code>#layers/&lt;nom&gt;</code>.</li>
       </ul>
 
       <h3><span data-l="en">Rendering badges</span><span data-l="fr">Badges de rendu</span></h3>
@@ -434,11 +436,11 @@ npx impact-analyser routes                             <span class="c"># every r
 
       <h3><span data-l="en">Good to know</span><span data-l="fr">À savoir</span></h3>
       <ul data-l="en">
-        <li>Not covered yet: Nuxt layers (<code>extends</code>), Nitro auto-imports of <code>server/utils</code>, <code>&lt;component :is&gt;</code>, Pug templates. Exclude <code>layers/**</code> to avoid noise.</li>
+        <li>Not analysed: layers from npm packages or git repositories (listed in the explorer). <code>&lt;component :is&gt;</code> is resolved when its candidates are written in the code (strings, imports, <code>resolveComponent</code>), not when they come from data.</li>
         <li>In CI, changes to <code>nuxt.config.*</code>, <code>app.config.*</code>, <code>.nuxtrc</code> and <code>router.options.*</code> are reported as <em>global</em>.</li>
       </ul>
       <ul data-l="fr">
-        <li>Pas encore couverts : layers Nuxt (<code>extends</code>), auto-imports Nitro de <code>server/utils</code>, <code>&lt;component :is&gt;</code>, templates Pug. Excluez <code>layers/**</code> pour éviter le bruit.</li>
+        <li>Non analysées : les layers issues de paquets npm ou de dépôts git (signalées dans l’explorateur). <code>&lt;component :is&gt;</code> est résolu quand ses candidats sont écrits dans le code (chaînes, imports, <code>resolveComponent</code>), pas quand ils viennent de données.</li>
         <li>En CI, les modifications de <code>nuxt.config.*</code>, <code>app.config.*</code>, <code>.nuxtrc</code> et <code>router.options.*</code> sont signalées comme <em>globales</em>.</li>
       </ul>
     </div>
