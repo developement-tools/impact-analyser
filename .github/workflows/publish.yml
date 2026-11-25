@@ -1,0 +1,42 @@
+# Publishes to npm when a version tag is pushed (npm version … && git push --follow-tags).
+# Uses npm Trusted Publishing (OIDC): no npm token is stored in GitHub.
+# Setup, once: npmjs.com > package impact-analyser > Settings > Trusted Publisher > GitHub Actions
+#   organization/user: developement-tools · repository: impact-analyser · workflow: publish.yml
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # lets npm verify that this workflow, in this repository, is publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      # Trusted Publishing needs a recent npm CLI.
+      - run: npm install -g npm@latest
+      - run: npm ci
+
+      - name: Check that the tag matches package.json
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $VERSION" && exit 1
+          fi
+
+      # Tests and build run before publishing (prepublishOnly / prepack).
+      - name: Publish (pre-releases such as 0.2.0-beta.1 go to the "beta" tag)
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          case "$VERSION" in
+            *-*) npm publish --tag beta ;;
+            *) npm publish ;;
+          esac
