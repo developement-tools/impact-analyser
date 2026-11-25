@@ -1,0 +1,65 @@
+{
+  "name": "impact-analyser",
+  "version": "0.1.0-beta.0",
+  "description": "Map the pages and components of a Next.js or Nuxt app and see which routes a change impacts.",
+  "author": "Sébastien Blache",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/developement-tools/impact-analyser.git"
+  },
+  "homepage": "https://github.com/developement-tools/impact-analyser#readme",
+  "bugs": {
+    "url": "https://github.com/developement-tools/impact-analyser/issues"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "impact-analyser": "./bin/impact-analyser.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "bin",
+    "ui",
+    "dist",
+    "docs",
+    "README.fr.md"
+  ],
+  "keywords": [
+    "nextjs",
+    "next",
+    "react",
+    "dependency-graph",
+    "impact-analysis",
+    "components",
+    "nuxt",
+    "vue",
+    "nuxt3",
+    "nuxt4"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && vitest run",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
+  },
+  "dependencies": {
+    "@vue/compiler-sfc": "^3.5.46",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vitest": "^5.1.1"
+  }
+}

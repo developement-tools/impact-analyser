@@ -1,0 +1,6 @@
+.button { padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; background: white; cursor: pointer; }
+.primary { background: #111; color: white; border-color: #111; }
+.danger { background: #dc2626; color: white; border-color: #dc2626; }
+.ghost { background: transparent; border-color: transparent; }
+.sm { padding: 4px 10px; font-size: 13px; }
+.lg { padding: 12px 20px; font-size: 16px; }

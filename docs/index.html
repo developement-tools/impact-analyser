@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>impact-analyser — Documentation</title>
+<meta name="description" content="Map the pages and components of a Next.js or Nuxt app and see which routes a change impacts.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='8' cy='16' r='5' fill='%234f46e5'/%3E%3Ccircle cx='24' cy='8' r='4' fill='%234f46e5'/%3E%3Ccircle cx='24' cy='24' r='4' fill='%234f46e5'/%3E%3Cpath d='M12 14l8-5M12 18l8 5' stroke='%234f46e5' stroke-width='2.5'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #ffffff; --panel: #fafafa; --panel-2: #f4f4f5; --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-2: #3f3f46; --muted: #71717a; --accent: #4f46e5; --accent-soft: #eef2ff;
+  --warn: #b45309; --warn-soft: #fffbeb; --ok: #15803d; --code-bg: #f6f6f7;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0b0e; --panel: #111114; --panel-2: #18181b; --border: #27272a; --border-strong: #3f3f46;
+    --text: #f4f4f5; --text-2: #d4d4d8; --muted: #a1a1aa; --accent: #818cf8; --accent-soft: #1e1b4b;
+    --warn: #fbbf24; --warn-soft: #2d2208; --ok: #4ade80; --code-bg: #141418;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 72px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--mono); }
+:not(pre) > code { font-size: 0.88em; background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 0.05em 0.35em; white-space: nowrap; }
+
+/* language switch: only the active language is shown */
+html[data-lang="en"] [data-l="fr"], html[data-lang="fr"] [data-l="en"] { display: none !important; }
+
+/* top bar */
+.topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; height: 56px; padding: 0 24px; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 650; color: var(--text); }
+.brand:hover { text-decoration: none; }
+.brand svg { fill: var(--accent); stroke: var(--accent); stroke-width: 2.5; }
+.version { font: 12px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 1px 8px; }
+.spacer { flex: 1; }
+.lang { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.lang button { font: 600 12px Inter, system-ui, sans-serif; color: var(--muted); background: transparent; border: 0; padding: 5px 11px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); }
+.menu-btn { display: none; font: inherit; background: none; border: 1px solid var(--border); border-radius: 7px; padding: 4px 10px; color: var(--text); cursor: pointer; }
+
+/* layout */
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1180px; margin: 0 auto; }
+.toc { position: sticky; top: 56px; align-self: start; height: calc(100vh - 56px); overflow: auto; padding: 22px 16px 40px 24px; border-right: 1px solid var(--border); font-size: 13.5px; }
+.toc-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 18px 0 6px; }
+.toc-title:first-child { margin-top: 0; }
+.toc a { display: block; padding: 4px 10px; margin: 1px 0; border-radius: 6px; color: var(--text-2); }
+.toc a:hover { background: var(--panel-2); text-decoration: none; }
+.toc a.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+main { padding: 32px 48px 120px; min-width: 0; }
+section { margin-bottom: 56px; }
+h1 { font-size: 32px; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 10px; }
+h2 { font-size: 23px; letter-spacing: -0.01em; margin: 0 0 14px; padding-top: 6px; border-top: 1px solid var(--border); padding-top: 28px; }
+section:first-of-type h2 { border-top: 0; padding-top: 0; }
+h3 { font-size: 17px; margin: 28px 0 10px; }
+h4 { font-size: 14.5px; margin: 20px 0 8px; }
+p { margin: 0 0 14px; }
+ul, ol { padding-left: 22px; margin: 0 0 14px; }
+li { margin: 4px 0; }
+.lead { font-size: 17px; color: var(--text-2); max-width: 70ch; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
+.badge { font-size: 12.5px; font-weight: 500; border: 1px solid var(--border); background: var(--panel); border-radius: 99px; padding: 3px 11px; color: var(--text-2); }
+
+/* code blocks */
+.code { position: relative; margin: 0 0 16px; }
+pre { margin: 0; padding: 14px 16px; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; overflow: auto; font-size: 13px; line-height: 1.6; }
+.code .lang-label { position: absolute; top: 8px; right: 74px; font: 11px var(--mono); color: var(--muted); }
+.copy { position: absolute; top: 6px; right: 6px; font: 500 11.5px Inter, system-ui, sans-serif; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; cursor: pointer; }
+.copy:hover { color: var(--text); border-color: var(--border-strong); }
+.c { color: var(--muted); }
+.k { color: #9333ea; }
+.s { color: #15803d; }
+@media (prefers-color-scheme: dark) { .k { color: #d8b4fe; } .s { color: #86efac; } }
+
+/* tables */
+.table-wrap { overflow-x: auto; margin: 0 0 16px; border: 1px solid var(--border); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--panel-2); padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; }
+td:last-child { min-width: 260px; }
+td code { white-space: normal; }
+
+/* callouts */
+.note { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; background: var(--panel); padding: 10px 14px; margin: 0 0 16px; color: var(--text-2); }
+.note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.note p:last-child { margin: 0; }
+
+/* framework tabs */
+.tabs { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 8px 0 16px; }
+.tablist { display: flex; gap: 2px; padding: 6px 6px 0; background: var(--panel-2); border-bottom: 1px solid var(--border); }
+.tablist button { font: 600 14px Inter, system-ui, sans-serif; color: var(--muted); background: transparent; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; padding: 8px 16px; margin-bottom: -1px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.tablist button[aria-selected="true"] { background: var(--bg); color: var(--text); border-color: var(--border); }
+.tablist .dot { width: 8px; height: 8px; border-radius: 50%; }
+.tabpanel { padding: 22px 24px 8px; background: var(--bg); }
+.tabpanel[hidden] { display: none; }
+.tabpanel h3:first-child { margin-top: 0; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 0 0 16px; }
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; background: var(--panel); }
+.card strong { display: block; margin-bottom: 4px; }
+.card p { margin: 0; font-size: 14px; color: var(--text-2); }
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); padding-top: 18px; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .toc { position: fixed; top: 56px; left: 0; bottom: 0; width: 280px; height: auto; background: var(--bg); z-index: 9; transform: translateX(-100%); transition: transform 0.15s; border-right: 1px solid var(--border); }
+  body.toc-open .toc { transform: none; }
+  .menu-btn { display: inline-block; }
+  main { padding: 24px 16px 80px; }
+  .topbar { padding: 0 16px; }
+  h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="menu-btn" type="button" aria-label="Menu">☰</button>
+  <a class="brand" href="#overview">
+    <svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><circle cx="8" cy="16" r="5"/><circle cx="24" cy="8" r="4"/><circle cx="24" cy="24" r="4"/><path d="M12 14l8-5M12 18l8 5"/></svg>
+    impact-analyser
+  </a>
+  <span class="version">v0.1.0-beta.0</span>
+  <span class="spacer"></span>
+  <div class="lang" role="group" aria-label="Language / Langue">
+    <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="fr" aria-pressed="false">FR</button>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <div class="toc-title"><span data-l="en">Getting started</span><span data-l="fr">Démarrer</span></div>
+  <a href="#overview"><span data-l="en">Overview</span><span data-l="fr">Présentation</span></a>
+  <a href="#install"><span data-l="en">Installation</span><span data-l="fr">Installation</span></a>
+  <a href="#quick-start"><span data-l="en">Quick start</span><span data-l="fr">Prise en main</span></a>
+  <div class="toc-title">Configuration</div>
+  <a href="#config"><span data-l="en">Global configuration</span><span data-l="fr">Configuration globale</span></a>
+  <a href="#scope"><span data-l="en">Analysis scope</span><span data-l="fr">Périmètre d’analyse</span></a>
+  <a href="#frameworks"><span data-l="en">Next.js / Nuxt</span><span data-l="fr">Next.js / Nuxt</span></a>
+  <div class="toc-title"><span data-l="en">Usage</span><span data-l="fr">Utilisation</span></div>
+  <a href="#cli"><span data-l="en">Commands</span><span data-l="fr">Commandes</span></a>
+  <a href="#ui"><span data-l="en">Visual explorer</span><span data-l="fr">Explorateur visuel</span></a>
+  <a href="#ai-map"><span data-l="en">Map for AI assistants</span><span data-l="fr">Carte pour assistants IA</span></a>
+  <a href="#ci"><span data-l="en">CI / pull requests</span><span data-l="fr">CI / pull requests</span></a>
+  <a href="#api"><span data-l="en">Programmatic API</span><span data-l="fr">API programmatique</span></a>
+  <div class="toc-title"><span data-l="en">Reference</span><span data-l="fr">Référence</span></div>
+  <a href="#metrics"><span data-l="en">How metrics are computed</span><span data-l="fr">Calcul des indicateurs</span></a>
+  <a href="#security"><span data-l="en">Security</span><span data-l="fr">Sécurité</span></a>
+  <a href="#limits"><span data-l="en">Limits & troubleshooting</span><span data-l="fr">Limites & dépannage</span></a>
+</nav>
+
+<main>
+
+<!-- ============================================================ OVERVIEW -->
+<section id="overview">
+  <h1>impact-analyser</h1>
+  <p class="lead" data-l="en">Map the routes and components of a <strong>Next.js</strong> or <strong>Nuxt</strong> app, see where every component is used, with which variants, and which pages a change can affect — before you change it.</p>
+  <p class="lead" data-l="fr">Cartographie les routes et les composants d’une app <strong>Next.js</strong> ou <strong>Nuxt</strong> : où chaque composant est utilisé, avec quelles variantes, et quelles pages une modification peut affecter — avant de la faire.</p>
+  <div class="badges">
+    <span class="badge">Next.js 9 → 16 · App Router + Pages Router</span>
+    <span class="badge">Nuxt 2 · 3 · 4</span>
+    <span class="badge">Node.js ≥ 20</span>
+    <span class="badge"><span data-l="en">Static analysis — nothing added to your app</span><span data-l="fr">Analyse statique — rien d’ajouté à votre app</span></span>
+  </div>
+
+  <div class="grid">
+    <div class="card"><strong><span data-l="en">Visual explorer</span><span data-l="fr">Explorateur visuel</span></strong><p data-l="en">Routes, components, usages, variants and dependency graph in your browser, updated on every save.</p><p data-l="fr">Routes, composants, utilisations, variantes et graphe de dépendances dans le navigateur, à jour à chaque sauvegarde.</p></div>
+    <div class="card"><strong><span data-l="en">Impact of a change</span><span data-l="fr">Impact d’un changement</span></strong><p data-l="en">The pages affected by a file, a component or a whole branch (<code>--since main</code>), with the dependency path.</p><p data-l="fr">Les pages concernées par un fichier, un composant ou toute une branche (<code>--since main</code>), avec le chemin de dépendance.</p></div>
+    <div class="card"><strong><span data-l="en">Map for AI assistants</span><span data-l="fr">Carte pour assistants IA</span></strong><p data-l="en"><code>docs/impact-map.md</code>: the structure of the app in a compact format for Claude Code, Cursor, Copilot…</p><p data-l="fr"><code>docs/impact-map.md</code> : la structure de l’app dans un format compact pour Claude Code, Cursor, Copilot…</p></div>
+    <div class="card"><strong><span data-l="en">Dead code</span><span data-l="fr">Code mort</span></strong><p data-l="en">Components never rendered and files no route reaches.</p><p data-l="fr">Composants jamais rendus et fichiers qu’aucune route n’atteint.</p></div>
+  </div>
+
+  <div data-l="en">
+    <p>impact-analyser reads your source code (TypeScript compiler API, Vue SFC compiler) and never runs your app. It understands what static imports cannot show on their own: layouts and wrappers, barrel files, <code>next/dynamic</code>, Nuxt auto-imported components and composables, nested routes, middleware and plugins.</p>
+  </div>
+  <div data-l="fr">
+    <p>impact-analyser lit le code source (API du compilateur TypeScript, compilateur de SFC Vue) et n’exécute jamais l’app. Il comprend ce que les imports seuls ne montrent pas : layouts et enveloppes, fichiers barrel, <code>next/dynamic</code>, composants et composables auto-importés de Nuxt, routes imbriquées, middleware et plugins.</p>
+  </div>
+</section>
+
+<!-- ============================================================ INSTALL -->
+<section id="install">
+  <h2>Installation</h2>
+  <p data-l="en">Install it as a <strong>dev dependency</strong> of the Next.js or Nuxt project: it is a development tool and must not be shipped to production.</p>
+  <p data-l="fr">Installez-le en <strong>dépendance de développement</strong> du projet Next.js ou Nuxt : c’est un outil de développement, il ne doit pas partir en production.</p>
+
+  <div class="code"><pre><code>npm install --save-dev impact-analyser
+<span class="c"># pnpm add -D impact-analyser</span>
+<span class="c"># yarn add -D impact-analyser</span>
+<span class="c"># bun add -d impact-analyser</span></code></pre></div>
+
+  <p data-l="en">Then add the scripts you need to the <code>package.json</code> of the app:</p>
+  <p data-l="fr">Ajoutez ensuite les scripts utiles au <code>package.json</code> de l’app :</p>
+  <div class="code"><span class="lang-label">package.json</span><pre><code>{
+  <span class="k">"scripts"</span>: {
+    <span class="k">"analyse:ui"</span>: <span class="s">"impact-analyser ui --open"</span>,
+    <span class="k">"analyse:generate"</span>: <span class="s">"impact-analyser generate"</span>,
+    <span class="k">"analyse:impact"</span>: <span class="s">"impact-analyser impact --since main"</span>
+  }
+}</code></pre></div>
+
+  <div class="note" data-l="en"><p><strong>Requirements:</strong> Node.js 20 or later. No other setup: the framework, its version and the source folders are detected from <code>package.json</code>. For Nuxt 3/4, run <code>nuxi prepare</code> (or <code>nuxi dev</code>) once so that auto-imported names come from Nuxt itself — see <a href="#frameworks">Next.js / Nuxt</a>.</p></div>
+  <div class="note" data-l="fr"><p><strong>Prérequis :</strong> Node.js 20 ou plus. Aucune autre mise en place : le framework, sa version et les dossiers sources sont détectés depuis le <code>package.json</code>. Pour Nuxt 3/4, lancez une fois <code>nuxi prepare</code> (ou <code>nuxi dev</code>) pour que les noms auto-importés viennent de Nuxt lui-même — voir <a href="#frameworks">Next.js / Nuxt</a>.</p></div>
+</section>
+
+<!-- ============================================================ QUICK START -->
+<section id="quick-start">
+  <h2><span data-l="en">Quick start</span><span data-l="fr">Prise en main</span></h2>
+  <p data-l="en">From the root of the app:</p>
+  <p data-l="fr">Depuis la racine de l’app :</p>
+  <div class="code"><pre><code>npx impact-analyser ui --open                         <span class="c"># visual explorer: http://127.0.0.1:4321</span>
+npx impact-analyser impact src/components/ui/Button.tsx <span class="c"># pages impacted by a file</span>
+npx impact-analyser impact --since main                <span class="c"># pages impacted by the current branch</span>
+npx impact-analyser generate                           <span class="c"># docs/impact-map.md for AI assistants</span>
+npx impact-analyser routes                             <span class="c"># every route with its layouts</span></code></pre></div>
+  <p data-l="en">Optionally, create <code>impact-analyser.config.json</code> to set the language, your editor or the analysis scope (see below). Everything works without it.</p>
+  <p data-l="fr">Facultatif : créez <code>impact-analyser.config.json</code> pour régler la langue, votre éditeur ou le périmètre d’analyse (voir ci-dessous). Tout fonctionne sans.</p>
+</section>
+
+<!-- ============================================================ GLOBAL CONFIG -->
+<section id="config">
+  <h2><span data-l="en">Global configuration</span><span data-l="fr">Configuration globale</span></h2>
+  <p data-l="en">The configuration is optional and shared by every command and by the explorer. It is read from the root of the app, first file found:</p>
+  <p data-l="fr">La configuration est facultative et commune à toutes les commandes et à l’explorateur. Elle est lue à la racine de l’app, premier fichier trouvé :</p>
+  <ol>
+    <li><code>impact-analyser.config.json</code></li>
+    <li><code>impact-analyser.config.mjs</code> / <code>impact-analyser.config.js</code> <span data-l="en">(default export)</span><span data-l="fr">(export par défaut)</span></li>
+    <li><span data-l="en">the</span><span data-l="fr">la clé</span> <code>"impactAnalyser"</code> <span data-l="en">key of</span><span data-l="fr">du</span> <code>package.json</code></li>
+  </ol>
+
+  <div class="code"><span class="lang-label">impact-analyser.config.json</span><pre><code>{
+  <span class="k">"lang"</span>: <span class="s">"fr"</span>,
+  <span class="k">"editor"</span>: <span class="s">"vscode"</span>,
+  <span class="k">"appUrl"</span>: <span class="s">"http://localhost:3000"</span>,
+  <span class="k">"port"</span>: 4321,
+  <span class="k">"include"</span>: [<span class="s">"*"</span>],
+  <span class="k">"exclude"</span>: [<span class="s">"src/legacy/**"</span>, <span class="s">"*.generated.ts"</span>],
+  <span class="k">"output"</span>: { <span class="k">"dir"</span>: <span class="s">"docs"</span>, <span class="k">"file"</span>: <span class="s">"impact-map.md"</span> }
+}</code></pre></div>
+
+  <p data-l="en">With <code>.mjs</code>, <code>defineConfig</code> gives autocompletion and type checking:</p>
+  <p data-l="fr">En <code>.mjs</code>, <code>defineConfig</code> apporte l’autocomplétion et la vérification des types :</p>
+  <div class="code"><span class="lang-label">impact-analyser.config.mjs</span><pre><code><span class="k">import</span> { defineConfig } <span class="k">from</span> <span class="s">'impact-analyser'</span>;
+
+<span class="k">export default</span> defineConfig({
+  lang: <span class="s">'en'</span>,
+  editor: <span class="s">'cursor'</span>,
+  exclude: [<span class="s">'src/legacy/**'</span>],
+});</code></pre></div>
+
+  <h3><span data-l="en">Options</span><span data-l="fr">Options</span></h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Option</th><th><span data-l="en">Type / values</span><span data-l="fr">Type / valeurs</span></th><th><span data-l="en">Default</span><span data-l="fr">Défaut</span></th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>lang</code></td><td><code>"en"</code> · <code>"fr"</code></td><td><span data-l="en">system locale, else</span><span data-l="fr">langue du système, sinon</span> <code>"en"</code></td><td><span data-l="en">Language of the commands and of the explorer (which also has a switch).</span><span data-l="fr">Langue des commandes et de l’explorateur (qui a aussi un sélecteur).</span></td></tr>
+      <tr><td><code>editor</code></td><td><code>vscode</code> · <code>cursor</code> · <code>webstorm</code> · <code>idea</code> · <code>zed</code> · <code>none</code></td><td><code>"vscode"</code></td><td><span data-l="en">Target of the “Open in editor” links (file and line).</span><span data-l="fr">Cible des liens « Ouvrir dans l’éditeur » (fichier et ligne).</span></td></tr>
+      <tr><td><code>appUrl</code></td><td>string</td><td><code>"http://localhost:3000"</code></td><td><span data-l="en">URL of the running app, for the “Open in app” links.</span><span data-l="fr">URL de l’app lancée, pour les liens « Ouvrir dans l’app ».</span></td></tr>
+      <tr><td><code>port</code></td><td>number</td><td><code>4321</code></td><td><span data-l="en">Port of the explorer; the next free port is used if it is taken.</span><span data-l="fr">Port de l’explorateur ; le port libre suivant est utilisé s’il est pris.</span></td></tr>
+      <tr><td><code>include</code></td><td>string[]</td><td><code>["*"]</code></td><td><span data-l="en">Files to analyse (globs, see <a href="#scope">scope</a>). <code>*</code> = the whole project.</span><span data-l="fr">Fichiers à analyser (globs, voir <a href="#scope">périmètre</a>). <code>*</code> = tout le projet.</span></td></tr>
+      <tr><td><code>exclude</code></td><td>string[]</td><td><code>[]</code></td><td><span data-l="en">Files to ignore, even when included.</span><span data-l="fr">Fichiers à ignorer, même s’ils sont inclus.</span></td></tr>
+      <tr><td><code>output</code></td><td><code>{ dir?, file? }</code></td><td><code>{ "dir": "docs", "file": "impact-map.md" }</code></td><td><span data-l="en">Where <code>generate</code> writes the map for AI assistants (relative to the app root).</span><span data-l="fr">Emplacement de la carte écrite par <code>generate</code> (relatif à la racine de l’app).</span></td></tr>
+      <tr><td><code>framework</code></td><td><code>"next"</code> · <code>"nuxt"</code></td><td><span data-l="en">detected</span><span data-l="fr">détecté</span></td><td><span data-l="en">Forces the framework when detection is not possible (see the framework tabs).</span><span data-l="fr">Force le framework quand la détection n’est pas possible (voir les onglets par framework).</span></td></tr>
+      <tr><td><code>pageExtensions</code></td><td>string[]</td><td><span data-l="en">framework default</span><span data-l="fr">défaut du framework</span></td><td><span data-l="en">File extensions of pages (see the framework tabs).</span><span data-l="fr">Extensions des fichiers de pages (voir les onglets par framework).</span></td></tr>
+      <tr><td><code>allowedHosts</code></td><td>string[]</td><td><code>[]</code></td><td><span data-l="en">Extra host names allowed to reach the explorer (Codespaces, remote VM). See <a href="#security">security</a>.</span><span data-l="fr">Noms d’hôte supplémentaires autorisés à joindre l’explorateur (Codespaces, VM distante). Voir <a href="#security">sécurité</a>.</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span data-l="en">Priority and live reload</span><span data-l="fr">Priorité et rechargement à chaud</span></h3>
+  <ul data-l="en">
+    <li>Command-line flags win over the file for one command: <code>--lang</code>, <code>--include</code> / <code>--exclude</code> (repeatable), <code>--port</code>, <code>--out</code>.</li>
+    <li>While <code>impact-analyser ui</code> is running, saving the config file re-runs the analysis and refreshes the browser (except <code>port</code>, which needs a restart). An invalid file is reported in the explorer; the previous configuration stays active until it is fixed.</li>
+  </ul>
+  <ul data-l="fr">
+    <li>Les options de ligne de commande priment sur le fichier, pour une commande : <code>--lang</code>, <code>--include</code> / <code>--exclude</code> (répétables), <code>--port</code>, <code>--out</code>.</li>
+    <li>Pendant que <code>impact-analyser ui</code> tourne, sauvegarder le fichier de config relance l’analyse et rafraîchit le navigateur (sauf <code>port</code>, qui demande un redémarrage). Un fichier invalide est signalé dans l’explorateur ; la configuration précédente reste active jusqu’à correction.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ SCOPE -->
+<section id="scope">
+  <h2><span data-l="en">Analysis scope</span><span data-l="fr">Périmètre d’analyse</span></h2>
+  <p data-l="en"><code>include</code> and <code>exclude</code> take globs relative to the app root, with <code>.gitignore</code>-like rules:</p>
+  <p data-l="fr"><code>include</code> et <code>exclude</code> prennent des globs relatifs à la racine de l’app, avec des règles proches de <code>.gitignore</code> :</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th><span data-l="en">Pattern</span><span data-l="fr">Motif</span></th><th><span data-l="en">Matches</span><span data-l="fr">Correspond à</span></th></tr></thead>
+    <tbody>
+      <tr><td><code>*</code></td><td><span data-l="en">everything (default of <code>include</code>)</span><span data-l="fr">tout (défaut de <code>include</code>)</span></td></tr>
+      <tr><td><code>__mocks__</code>, <code>*.generated.ts</code></td><td><span data-l="en">no slash: a file or folder name at any depth</span><span data-l="fr">sans <code>/</code> : un nom de fichier ou de dossier à n’importe quelle profondeur</span></td></tr>
+      <tr><td><code>src/legacy/**</code>, <code>src/legacy</code></td><td><span data-l="en">with a slash: anchored at the root; a folder covers its content</span><span data-l="fr">avec <code>/</code> : ancré à la racine ; un dossier couvre son contenu</span></td></tr>
+      <tr><td><code>*.{stories,test}.tsx</code>, <code>v?.ts</code></td><td><span data-l="en"><code>{a,b}</code> alternatives, <code>?</code> one character, <code>**</code> any number of folders</span><span data-l="fr">alternatives <code>{a,b}</code>, <code>?</code> un caractère, <code>**</code> n’importe quel nombre de dossiers</span></td></tr>
+    </tbody>
+  </table></div>
+  <p data-l="en">A file is analysed when it matches <code>include</code> and no <code>exclude</code>. An out-of-scope file is invisible: it is not a route, its imports are not followed (impact does not propagate through it) and it is not reported as dead code. The explorer shows the active scope and how many imported files were left out.</p>
+  <p data-l="fr">Un fichier est analysé s’il correspond à <code>include</code> et à aucun <code>exclude</code>. Un fichier hors périmètre est invisible : ce n’est pas une route, ses imports ne sont pas suivis (l’impact ne se propage pas à travers lui) et il n’est pas signalé comme code mort. L’explorateur affiche le périmètre actif et le nombre de fichiers importés laissés de côté.</p>
+  <div class="note" data-l="en"><p>Already excluded without configuration: <code>node_modules</code>, build folders (<code>.next</code>, <code>.nuxt</code>, <code>.output</code>, <code>dist</code>…), tests and stories (<code>*.test.*</code>, <code>*.spec.*</code>, <code>*.stories.*</code>) and <code>*.d.ts</code> files.</p></div>
+  <div class="note" data-l="fr"><p>Déjà exclus sans configuration : <code>node_modules</code>, dossiers de build (<code>.next</code>, <code>.nuxt</code>, <code>.output</code>, <code>dist</code>…), tests et stories (<code>*.test.*</code>, <code>*.spec.*</code>, <code>*.stories.*</code>) et fichiers <code>*.d.ts</code>.</p></div>
+</section>
+
+<!-- ============================================================ FRAMEWORKS (TABS) -->
+<section id="frameworks">
+  <h2><span data-l="en">Framework-specific configuration</span><span data-l="fr">Configuration par framework</span></h2>
+  <p data-l="en">The framework and its version are detected from the dependencies of <code>package.json</code> (then from <code>next.config.*</code> / <code>nuxt.config.*</code>). Force it with <code>"framework"</code> if needed.</p>
+  <p data-l="fr">Le framework et sa version sont détectés depuis les dépendances du <code>package.json</code> (puis depuis <code>next.config.*</code> / <code>nuxt.config.*</code>). Forcez-le avec <code>"framework"</code> si besoin.</p>
+
+  <div class="tabs" data-tabs="framework">
+    <div class="tablist" role="tablist">
+      <button type="button" role="tab" id="tab-next" aria-controls="panel-next" aria-selected="true" data-tab="next"><span class="dot" style="background:#18181b;outline:1px solid #71717a"></span>Next.js</button>
+      <button type="button" role="tab" id="tab-nuxt" aria-controls="panel-nuxt" aria-selected="false" data-tab="nuxt"><span class="dot" style="background:#00dc82"></span>Nuxt</button>
+    </div>
+
+    <!-- ------------------------------------------------ NEXT -->
+    <div class="tabpanel" role="tabpanel" id="panel-next" aria-labelledby="tab-next" data-panel="next">
+      <h3><span data-l="en">Supported versions</span><span data-l="fr">Versions prises en charge</span></h3>
+      <p data-l="en">Next.js 9 to 16, App Router and Pages Router, in the same project or separately. Tested on Next 12 (Pages Router, JavaScript, <code>jsconfig</code> <code>baseUrl</code>), 13 (App Router in <code>src/</code>, custom <code>pageExtensions</code>) and 16 (both routers).</p>
+      <p data-l="fr">Next.js 9 à 16, App Router et Pages Router, dans le même projet ou séparément. Testé sur Next 12 (Pages Router, JavaScript, <code>jsconfig</code> <code>baseUrl</code>), 13 (App Router dans <code>src/</code>, <code>pageExtensions</code> personnalisé) et 16 (les deux routeurs).</p>
+
+      <h3><span data-l="en">Recommended configuration</span><span data-l="fr">Configuration recommandée</span></h3>
+      <div class="code"><span class="lang-label">impact-analyser.config.json</span><pre><code>{
+  <span class="k">"appUrl"</span>: <span class="s">"http://localhost:3000"</span>,
+  <span class="k">"exclude"</span>: [<span class="s">"src/**/__mocks__"</span>]
+}</code></pre></div>
+
+      <h3><span data-l="en">Specific options</span><span data-l="fr">Options spécifiques</span></h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Option</th><th><span data-l="en">Default</span><span data-l="fr">Défaut</span></th><th><span data-l="en">When to set it</span><span data-l="fr">Quand la définir</span></th></tr></thead>
+        <tbody>
+          <tr><td><code>pageExtensions</code></td><td><span data-l="en">read from <code>next.config.*</code>, else</span><span data-l="fr">lu dans <code>next.config.*</code>, sinon</span> <code>["tsx", "ts", "jsx", "js"]</code></td><td><span data-l="en">Only if your <code>next.config</code> computes it (a variable, a function): the value is read statically from a literal array such as <code>pageExtensions: ['page.tsx', 'page.ts']</code>. With it, only <code>*.page.tsx</code> files are routes — including <code>layout.page.tsx</code> in the App Router.</span><span data-l="fr">Seulement si votre <code>next.config</code> la calcule (variable, fonction) : la valeur est lue statiquement depuis un tableau littéral comme <code>pageExtensions: ['page.tsx', 'page.ts']</code>. Avec elle, seuls les fichiers <code>*.page.tsx</code> sont des routes — y compris <code>layout.page.tsx</code> dans l’App Router.</span></td></tr>
+          <tr><td><code>appUrl</code></td><td><code>http://localhost:3000</code></td><td><span data-l="en">If <code>next dev</code> runs on another port or behind a local domain.</span><span data-l="fr">Si <code>next dev</code> tourne sur un autre port ou derrière un domaine local.</span></td></tr>
+          <tr><td><code>framework</code></td><td><code>"next"</code></td><td><span data-l="en">Only when <code>next</code> is not declared in the <code>package.json</code> of the analysed folder (unusual monorepo layouts).</span><span data-l="fr">Seulement quand <code>next</code> n’est pas déclaré dans le <code>package.json</code> du dossier analysé (monorepos atypiques).</span></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3><span data-l="en">What is analysed</span><span data-l="fr">Ce qui est analysé</span></h3>
+      <ul data-l="en">
+        <li><code>app/</code> and <code>pages/</code>, at the root or in <code>src/</code> (like Next.js, <code>src/</code> is ignored when <code>app/</code> or <code>pages/</code> exist at the root).</li>
+        <li>App Router: <code>layout</code>, <code>template</code>, <code>error</code>, <code>loading</code>, <code>not-found</code>, <code>forbidden</code>, <code>unauthorized</code>, <code>global-error</code>, <code>global-not-found</code>, <code>default</code>, <code>route</code> handlers, route groups <code>(group)</code>, parallel routes <code>@slot</code>, private folders <code>_folder</code>.</li>
+        <li>Pages Router: <code>_app</code> and <code>_document</code> wrap every page, <code>_error</code> is the error page, <code>pages/api</code> are API routes, Next 12.0–12.1 <code>pages/**/_middleware</code> applies to its folder.</li>
+        <li><code>middleware.ts</code> / <code>proxy.ts</code> (Next 16), at the root or in <code>src/</code>: applied to every route.</li>
+        <li>Imports: <code>tsconfig</code> / <code>jsconfig</code> <code>paths</code> and <code>baseUrl</code>, barrel files (<code>export … from</code>, <code>export *</code>), <code>next/dynamic</code>, <code>React.lazy</code>, <code>import()</code>, <code>require</code>, CSS and assets. <code>import type</code> is ignored (no runtime impact).</li>
+        <li>Components: functions, arrow functions, classes, default exports wrapped in a HOC (<code>export default withRouter(Nav)</code>), <code>&lt;Icons.Cart /&gt;</code> namespace usages; the <code>"use client"</code> directive.</li>
+      </ul>
+      <ul data-l="fr">
+        <li><code>app/</code> et <code>pages/</code>, à la racine ou dans <code>src/</code> (comme Next.js, <code>src/</code> est ignoré quand <code>app/</code> ou <code>pages/</code> existent à la racine).</li>
+        <li>App Router : <code>layout</code>, <code>template</code>, <code>error</code>, <code>loading</code>, <code>not-found</code>, <code>forbidden</code>, <code>unauthorized</code>, <code>global-error</code>, <code>global-not-found</code>, <code>default</code>, handlers <code>route</code>, groupes de routes <code>(groupe)</code>, routes parallèles <code>@slot</code>, dossiers privés <code>_dossier</code>.</li>
+        <li>Pages Router : <code>_app</code> et <code>_document</code> englobent toutes les pages, <code>_error</code> est la page d’erreur, <code>pages/api</code> sont des routes API, le <code>pages/**/_middleware</code> de Next 12.0–12.1 s’applique à son dossier.</li>
+        <li><code>middleware.ts</code> / <code>proxy.ts</code> (Next 16), à la racine ou dans <code>src/</code> : appliqué à toutes les routes.</li>
+        <li>Imports : <code>paths</code> et <code>baseUrl</code> du <code>tsconfig</code> / <code>jsconfig</code>, fichiers barrel (<code>export … from</code>, <code>export *</code>), <code>next/dynamic</code>, <code>React.lazy</code>, <code>import()</code>, <code>require</code>, CSS et ressources. <code>import type</code> est ignoré (pas d’impact à l’exécution).</li>
+        <li>Composants : fonctions, fonctions fléchées, classes, exports par défaut enveloppés dans un HOC (<code>export default withRouter(Nav)</code>), usages en namespace <code>&lt;Icons.Cart /&gt;</code> ; la directive <code>"use client"</code>.</li>
+      </ul>
+
+      <h3><span data-l="en">Rendering badges</span><span data-l="fr">Badges de rendu</span></h3>
+      <p data-l="en">With the App Router, components are <strong>server</strong> or <strong>client</strong> (<code>"use client"</code>). In a Pages Router-only project, server components do not exist: components are shown as <strong>universal</strong> (rendered on the server, then hydrated).</p>
+      <p data-l="fr">Avec l’App Router, les composants sont <strong>serveur</strong> ou <strong>client</strong> (<code>"use client"</code>). Dans un projet uniquement Pages Router, les composants serveur n’existent pas : les composants sont affichés <strong>universels</strong> (rendus côté serveur puis hydratés).</p>
+
+      <h3><span data-l="en">Good to know</span><span data-l="fr">À savoir</span></h3>
+      <ul data-l="en">
+        <li>The <code>matcher</code> of <code>middleware.ts</code> is not evaluated: the middleware is counted on every route.</li>
+        <li>In CI, changes to <code>package.json</code>, <code>tsconfig.json</code>, <code>next.config.*</code>, <code>middleware.*</code>, <code>proxy.*</code>, <code>instrumentation.*</code>, <code>.env*</code>, PostCSS and Tailwind configs are reported as <em>global</em> (they can affect every page).</li>
+        <li>“Open in app” is disabled for dynamic routes (<code>/products/[id]</code>): there is no concrete URL to open.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Le <code>matcher</code> de <code>middleware.ts</code> n’est pas évalué : le middleware est compté sur toutes les routes.</li>
+        <li>En CI, les modifications de <code>package.json</code>, <code>tsconfig.json</code>, <code>next.config.*</code>, <code>middleware.*</code>, <code>proxy.*</code>, <code>instrumentation.*</code>, <code>.env*</code>, des configs PostCSS et Tailwind sont signalées comme <em>globales</em> (elles peuvent affecter toutes les pages).</li>
+        <li>« Ouvrir dans l’app » est désactivé pour les routes dynamiques (<code>/products/[id]</code>) : il n’y a pas d’URL concrète à ouvrir.</li>
+      </ul>
+    </div>
+
+    <!-- ------------------------------------------------ NUXT -->
+    <div class="tabpanel" role="tabpanel" id="panel-nuxt" aria-labelledby="tab-nuxt" data-panel="nuxt" hidden>
+      <h3><span data-l="en">Supported versions</span><span data-l="fr">Versions prises en charge</span></h3>
+      <p data-l="en">Nuxt 2, 3 and 4 (including Nuxt 3 with <code>future.compatibilityVersion: 4</code>). Tested on Nuxt 2.18, 3.21 and 4.7. The version is read from the <code>nuxt</code> dependency (also <code>nuxt3</code>, <code>nuxt-edge</code>, <code>nuxt-nightly</code>).</p>
+      <p data-l="fr">Nuxt 2, 3 et 4 (y compris Nuxt 3 avec <code>future.compatibilityVersion: 4</code>). Testé sur Nuxt 2.18, 3.21 et 4.7. La version est lue dans la dépendance <code>nuxt</code> (aussi <code>nuxt3</code>, <code>nuxt-edge</code>, <code>nuxt-nightly</code>).</p>
+
+      <h3><span data-l="en">Recommended setup</span><span data-l="fr">Mise en place recommandée</span></h3>
+      <p data-l="en">Nuxt resolves auto-imported components and composables at build time and writes the result in <code>.nuxt/</code>. impact-analyser reads these files to use exactly the same names as Nuxt — including custom component directories and components added by modules. Most Nuxt 3/4 projects already generate them after install:</p>
+      <p data-l="fr">Nuxt résout les composants et composables auto-importés au build et écrit le résultat dans <code>.nuxt/</code>. impact-analyser lit ces fichiers pour utiliser exactement les mêmes noms que Nuxt — y compris les dossiers de composants personnalisés et les composants ajoutés par des modules. La plupart des projets Nuxt 3/4 les génèrent déjà après l’installation :</p>
+      <div class="code"><span class="lang-label">package.json</span><pre><code>{
+  <span class="k">"scripts"</span>: {
+    <span class="k">"postinstall"</span>: <span class="s">"nuxt prepare"</span>,
+    <span class="k">"analyse:ui"</span>: <span class="s">"impact-analyser ui --open"</span>,
+    <span class="k">"analyse:generate"</span>: <span class="s">"impact-analyser generate"</span>
+  }
+}</code></pre></div>
+      <div class="code"><span class="lang-label">impact-analyser.config.json</span><pre><code>{
+  <span class="k">"appUrl"</span>: <span class="s">"http://localhost:3000"</span>,
+  <span class="k">"exclude"</span>: [<span class="s">"layers/**"</span>]
+}</code></pre></div>
+      <div class="note warn" data-l="en"><p>Without <code>.nuxt/</code> (never prepared, or Nuxt 2 never started), names are inferred from Nuxt conventions and the explorer and the AI map show a warning. Conventions cover default folders; run <code>nuxi prepare</code> (Nuxt 3/4) or <code>nuxt dev</code> (Nuxt 2) for exact results.</p></div>
+      <div class="note warn" data-l="fr"><p>Sans <code>.nuxt/</code> (jamais préparé, ou Nuxt 2 jamais lancé), les noms sont déduits des conventions de Nuxt et l’explorateur comme la carte IA affichent un avertissement. Les conventions couvrent les dossiers par défaut ; lancez <code>nuxi prepare</code> (Nuxt 3/4) ou <code>nuxt dev</code> (Nuxt 2) pour un résultat exact.</p></div>
+
+      <h3><span data-l="en">Specific options</span><span data-l="fr">Options spécifiques</span></h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Option</th><th><span data-l="en">Default</span><span data-l="fr">Défaut</span></th><th><span data-l="en">When to set it</span><span data-l="fr">Quand la définir</span></th></tr></thead>
+        <tbody>
+          <tr><td><code>appUrl</code></td><td><code>http://localhost:3000</code></td><td><span data-l="en">If <code>nuxt dev</code> runs on another port (<code>--port 3001</code>…).</span><span data-l="fr">Si <code>nuxt dev</code> tourne sur un autre port (<code>--port 3001</code>…).</span></td></tr>
+          <tr><td><code>framework</code></td><td><code>"nuxt"</code></td><td><span data-l="en">Only when <code>nuxt</code> is not declared in the <code>package.json</code> of the analysed folder.</span><span data-l="fr">Seulement quand <code>nuxt</code> n’est pas déclaré dans le <code>package.json</code> du dossier analysé.</span></td></tr>
+        </tbody>
+      </table></div>
+      <p data-l="en">Read from <code>nuxt.config</code> (static values only, the file is not executed): <code>srcDir</code>, <code>buildDir</code>, <code>css</code>, <code>compatibilityVersion</code>, and for Nuxt 2 <code>components</code>, <code>plugins</code> and <code>router.middleware</code>.</p>
+      <p data-l="fr">Lus dans <code>nuxt.config</code> (valeurs statiques uniquement, le fichier n’est pas exécuté) : <code>srcDir</code>, <code>buildDir</code>, <code>css</code>, <code>compatibilityVersion</code>, et pour Nuxt 2 <code>components</code>, <code>plugins</code> et <code>router.middleware</code>.</p>
+
+      <h3><span data-l="en">What is analysed</span><span data-l="fr">Ce qui est analysé</span></h3>
+      <ul data-l="en">
+        <li>Source folder: <code>app/</code> in Nuxt 4, the root in Nuxt 2/3, or <code>srcDir</code> from <code>nuxt.config</code>.</li>
+        <li><code>pages/</code>: <code>[id]</code>, <code>[[id]]</code>, <code>[...slug]</code>, route groups <code>(group)</code>, nested routes (<code>parent.vue</code> + <code>parent/</code>), Nuxt 2 <code>_id</code> / <code>_</code>; without <code>pages/</code>, <code>app.vue</code> is the only page.</li>
+        <li>Wrappers of each page: <code>app.vue</code>, the error page (<code>error.vue</code>, Nuxt 2 <code>layouts/error.vue</code>), the layout (<code>default</code>, or <code>definePageMeta({ layout })</code> / Nuxt 2 <code>layout</code> option, <code>layout: false</code>, inherited from the parent page), route middleware (named, <code>.global</code>, Nuxt 2 <code>router.middleware</code>), plugins and global CSS.</li>
+        <li><code>server/api</code> and <code>server/routes</code> (HTTP method suffixes such as <code>[id].get.ts</code>).</li>
+        <li><code>.vue</code> files: <code>&lt;script&gt;</code> and <code>&lt;script setup&gt;</code> imports, components used in the template with their props (<code>variant="x"</code>, <code>:size</code>, <code>@click</code>, <code>v-bind</code>, <code>v-model</code>), PascalCase or kebab-case tags, Options API <code>components</code>.</li>
+        <li>Auto-imports: components (folder prefixes: <code>base/Button.vue</code> → <code>&lt;BaseButton&gt;</code>, <code>Lazy</code> prefix, <code>.client</code> / <code>.server</code>), composables and utils (<code>composables/</code>, <code>utils/</code>, <code>shared/utils</code>), <code>#components</code> and <code>#imports</code> imports.</li>
+        <li>Aliases <code>~</code>, <code>@</code>, <code>~~</code>, <code>@@</code>, <code>#shared</code>.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Dossier source : <code>app/</code> en Nuxt 4, la racine en Nuxt 2/3, ou le <code>srcDir</code> de <code>nuxt.config</code>.</li>
+        <li><code>pages/</code> : <code>[id]</code>, <code>[[id]]</code>, <code>[...slug]</code>, groupes de routes <code>(groupe)</code>, routes imbriquées (<code>parent.vue</code> + <code>parent/</code>), <code>_id</code> / <code>_</code> de Nuxt 2 ; sans <code>pages/</code>, <code>app.vue</code> est la seule page.</li>
+        <li>Enveloppes de chaque page : <code>app.vue</code>, la page d’erreur (<code>error.vue</code>, <code>layouts/error.vue</code> en Nuxt 2), le layout (<code>default</code>, ou <code>definePageMeta({ layout })</code> / option <code>layout</code> en Nuxt 2, <code>layout: false</code>, hérité de la page parente), les middleware de route (nommés, <code>.global</code>, <code>router.middleware</code> en Nuxt 2), les plugins et les CSS globales.</li>
+        <li><code>server/api</code> et <code>server/routes</code> (suffixes de méthode HTTP comme <code>[id].get.ts</code>).</li>
+        <li>Fichiers <code>.vue</code> : imports de <code>&lt;script&gt;</code> et <code>&lt;script setup&gt;</code>, composants utilisés dans le template avec leurs props (<code>variant="x"</code>, <code>:size</code>, <code>@click</code>, <code>v-bind</code>, <code>v-model</code>), balises en PascalCase ou kebab-case, option <code>components</code> de l’Options API.</li>
+        <li>Auto-imports : composants (préfixes de dossier : <code>base/Button.vue</code> → <code>&lt;BaseButton&gt;</code>, préfixe <code>Lazy</code>, <code>.client</code> / <code>.server</code>), composables et utils (<code>composables/</code>, <code>utils/</code>, <code>shared/utils</code>), imports <code>#components</code> et <code>#imports</code>.</li>
+        <li>Alias <code>~</code>, <code>@</code>, <code>~~</code>, <code>@@</code>, <code>#shared</code>.</li>
+      </ul>
+
+      <h3><span data-l="en">Rendering badges</span><span data-l="fr">Badges de rendu</span></h3>
+      <p data-l="en">Nuxt components are <strong>universal</strong> by default (rendered on the server, then hydrated); <code>.client.vue</code> components are <strong>client</strong> only.</p>
+      <p data-l="fr">Les composants Nuxt sont <strong>universels</strong> par défaut (rendus côté serveur puis hydratés) ; les composants <code>.client.vue</code> sont rendus uniquement côté <strong>client</strong>.</p>
+
+      <h3><span data-l="en">Good to know</span><span data-l="fr">À savoir</span></h3>
+      <ul data-l="en">
+        <li>Not covered yet: Nuxt layers (<code>extends</code>), Nitro auto-imports of <code>server/utils</code>, <code>&lt;component :is&gt;</code>, Pug templates. Exclude <code>layers/**</code> to avoid noise.</li>
+        <li>In CI, changes to <code>nuxt.config.*</code>, <code>app.config.*</code>, <code>.nuxtrc</code> and <code>router.options.*</code> are reported as <em>global</em>.</li>
+      </ul>
+      <ul data-l="fr">
+        <li>Pas encore couverts : layers Nuxt (<code>extends</code>), auto-imports Nitro de <code>server/utils</code>, <code>&lt;component :is&gt;</code>, templates Pug. Excluez <code>layers/**</code> pour éviter le bruit.</li>
+        <li>En CI, les modifications de <code>nuxt.config.*</code>, <code>app.config.*</code>, <code>.nuxtrc</code> et <code>router.options.*</code> sont signalées comme <em>globales</em>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CLI -->
+<section id="cli">
+  <h2><span data-l="en">Commands</span><span data-l="fr">Commandes</span></h2>
+  <p data-l="en">Every command runs from the app root (or takes the app folder as argument / <code>-d</code>). <code>npx impact-analyser --help</code> lists them in the configured language.</p>
+  <p data-l="fr">Chaque commande se lance depuis la racine de l’app (ou prend le dossier de l’app en argument / <code>-d</code>). <code>npx impact-analyser --help</code> les liste dans la langue configurée.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th><span data-l="en">Command</span><span data-l="fr">Commande</span></th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>ui [dir]</code></td><td><span data-l="en">Starts the visual explorer (127.0.0.1:4321), re-analyses on every save. <code>--open</code> opens the browser, <code>-p</code> sets the port, <code>--no-watch</code> disables live updates.</span><span data-l="fr">Lance l’explorateur visuel (127.0.0.1:4321), ré-analyse à chaque sauvegarde. <code>--open</code> ouvre le navigateur, <code>-p</code> fixe le port, <code>--no-watch</code> désactive la mise à jour en direct.</span></td></tr>
+      <tr><td><code>impact &lt;file…&gt;</code></td><td><span data-l="en">Routes and modules impacted by files, with the dependency path. <code>--format text|json|md</code>, <code>--types</code> also follows <code>import type</code>.</span><span data-l="fr">Routes et modules impactés par des fichiers, avec le chemin de dépendance. <code>--format text|json|md</code>, <code>--types</code> suit aussi les <code>import type</code>.</span></td></tr>
+      <tr><td><code>impact --since &lt;ref&gt;</code></td><td><span data-l="en">Same, for every file changed since a git ref (merge-base, uncommitted and untracked files included). See <a href="#ci">CI</a>.</span><span data-l="fr">Idem, pour tous les fichiers modifiés depuis une ref git (merge-base, fichiers non commités et non suivis inclus). Voir <a href="#ci">CI</a>.</span></td></tr>
+      <tr><td><code>generate [dir]</code></td><td><span data-l="en">Writes the map for AI assistants (<code>docs/impact-map.md</code>). <code>--watch</code>, <code>--check</code>, <code>--out &lt;path&gt;</code>. See <a href="#ai-map">AI map</a>.</span><span data-l="fr">Écrit la carte pour assistants IA (<code>docs/impact-map.md</code>). <code>--watch</code>, <code>--check</code>, <code>--out &lt;chemin&gt;</code>. Voir <a href="#ai-map">carte IA</a>.</span></td></tr>
+      <tr><td><code>routes [dir]</code></td><td><span data-l="en">Every route with its file and wrappers. <code>--json</code> for a machine-readable list.</span><span data-l="fr">Toutes les routes avec leur fichier et leurs enveloppes. <code>--json</code> pour une liste exploitable par un programme.</span></td></tr>
+      <tr><td><code>tree &lt;route&gt;</code></td><td><span data-l="en">Dependency tree of a route (<code>/dashboard</code>). <code>--depth &lt;n&gt;</code> limits it.</span><span data-l="fr">Arbre des dépendances d’une route (<code>/dashboard</code>). <code>--depth &lt;n&gt;</code> le limite.</span></td></tr>
+      <tr><td><code>analyze [dir]</code></td><td><span data-l="en">The full graph as JSON (stdout, or <code>-o file.json</code>).</span><span data-l="fr">Le graphe complet en JSON (sortie standard, ou <code>-o fichier.json</code>).</span></td></tr>
+    </tbody>
+  </table></div>
+  <p data-l="en">Options available on every command: <code>-d, --dir</code> (app folder), <code>--lang en|fr</code>, <code>--include</code> / <code>--exclude</code> (repeatable), <code>-h, --help</code>.</p>
+  <p data-l="fr">Options disponibles sur toutes les commandes : <code>-d, --dir</code> (dossier de l’app), <code>--lang en|fr</code>, <code>--include</code> / <code>--exclude</code> (répétables), <code>-h, --help</code>.</p>
+</section>
+
+<!-- ============================================================ UI -->
+<section id="ui">
+  <h2><span data-l="en">Visual explorer</span><span data-l="fr">Explorateur visuel</span></h2>
+  <p data-l="en"><code>impact-analyser ui</code> serves the explorer on <code>http://127.0.0.1:4321</code> and refreshes it on every save. Search with <kbd>⌘K</kbd> / <kbd>Ctrl K</kbd> or <kbd>/</kbd>.</p>
+  <p data-l="fr"><code>impact-analyser ui</code> sert l’explorateur sur <code>http://127.0.0.1:4321</code> et le rafraîchit à chaque sauvegarde. Recherche avec <kbd>⌘K</kbd> / <kbd>Ctrl K</kbd> ou <kbd>/</kbd>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th><span data-l="en">View</span><span data-l="fr">Vue</span></th><th>URL</th><th><span data-l="en">Content</span><span data-l="fr">Contenu</span></th></tr></thead>
+    <tbody>
+      <tr><td><span data-l="en">Overview</span><span data-l="fr">Vue d’ensemble</span></td><td><code>/</code></td><td><span data-l="en">Key figures, scope, most shared components, layouts, shared modules.</span><span data-l="fr">Chiffres clés, périmètre, composants les plus partagés, layouts, modules partagés.</span></td></tr>
+      <tr><td>Routes</td><td><code>/routes/app/dashboard</code></td><td><span data-l="en">Routes as a collapsible URL tree; for each route: render hierarchy (layouts, wrappers, middleware), component tree, imported files.</span><span data-l="fr">Routes en arbre d’URL repliable ; pour chaque route : hiérarchie de rendu (layouts, enveloppes, middleware), arbre des composants, fichiers importés.</span></td></tr>
+      <tr><td><span data-l="en">Components</span><span data-l="fr">Composants</span></td><td><code>/components/Button?tab=variants</code></td><td><span data-l="en">Impacted pages, usages (file:line + code), variants and their usages, dependency graph — “Expand” opens it fullscreen: zoom, pan, drag boxes, click to highlight links (<code>?tab=map&amp;full=1</code>).</span><span data-l="fr">Pages impactées, utilisations (fichier:ligne + code), variantes et leurs utilisations, graphe de dépendances — « Agrandir » l’ouvre en plein écran : zoom, déplacement, boîtes déplaçables, clic pour mettre les liens en évidence (<code>?tab=map&amp;full=1</code>).</span></td></tr>
+      <tr><td><span data-l="en">Files</span><span data-l="fr">Fichiers</span></td><td><code>/files/src/lib/format.ts</code></td><td><span data-l="en">Impact, importers, imports, exports of any module.</span><span data-l="fr">Impact, importeurs, imports, exports de n’importe quel module.</span></td></tr>
+      <tr><td><span data-l="en">Dead code</span><span data-l="fr">Code mort</span></td><td><code>/dead-code</code></td><td><span data-l="en">Components never rendered, unreachable files, unresolved imports.</span><span data-l="fr">Composants jamais rendus, fichiers inaccessibles, imports non résolus.</span></td></tr>
+      <tr><td><span data-l="en">Reference</span><span data-l="fr">Référence</span></td><td><code>/reference</code></td><td><span data-l="en">How metrics are computed, glossary of the framework terms.</span><span data-l="fr">Calcul des indicateurs, glossaire des termes du framework.</span></td></tr>
+    </tbody>
+  </table></div>
+  <p data-l="en">Every view has a readable URL that can be bookmarked or shared. When two components share a name, <code>?in=&lt;file&gt;</code> tells them apart.</p>
+  <p data-l="fr">Chaque vue a une URL lisible, que l’on peut garder en favori ou partager. Quand deux composants portent le même nom, <code>?in=&lt;fichier&gt;</code> les distingue.</p>
+</section>
+
+<!-- ============================================================ AI MAP -->
+<section id="ai-map">
+  <h2><span data-l="en">Map for AI assistants</span><span data-l="fr">Carte pour assistants IA</span></h2>
+  <p data-l="en"><code>impact-analyser generate</code> writes <code>docs/impact-map.md</code> (folder created if needed, file replaced on each run): the structure of the app and all its dependencies, in a compact Markdown made for Claude Code, Cursor, Copilot and other code assistants. With it, they know where a component is used and what a change can break before editing — fewer regressions.</p>
+  <p data-l="fr"><code>impact-analyser generate</code> écrit <code>docs/impact-map.md</code> (dossier créé si besoin, fichier remplacé à chaque exécution) : la structure de l’app et toutes ses dépendances, dans un Markdown compact pensé pour Claude Code, Cursor, Copilot et les autres assistants de code. Avec elle, ils savent où un composant est utilisé et ce qu’un changement peut casser avant de modifier — moins de régressions.</p>
+  <div class="code"><pre><code>npm run analyse:generate                     <span class="c"># docs/impact-map.md</span>
+npx impact-analyser generate --watch         <span class="c"># regenerates on every save</span>
+npx impact-analyser generate --check         <span class="c"># CI / pre-commit: fails if missing or outdated</span>
+npx impact-analyser generate --out .ai/map.md <span class="c"># another location for one run</span></code></pre></div>
+
+  <h3><span data-l="en">Content</span><span data-l="fr">Contenu</span></h3>
+  <ol data-l="en">
+    <li><strong>Summary</strong>: framework and version, scope, counts, dead code.</li>
+    <li><strong>High impact</strong>: components and modules reaching 50% of the pages or more.</li>
+    <li><strong>Routes</strong>: one line per route with its file, its own wrappers and the components it renders; wrappers shared by every page are written once.</li>
+    <li><strong>Layouts and wrappers</strong> with the pages they wrap.</li>
+    <li><strong>One <code>### &lt;Component&gt;</code> block per component</strong>: file, impacted pages, props and their values (<code>variant: "primary"×2 | "danger"×1 | unset×2</code>), every usage as <code>file:line</code> with its code.</li>
+    <li><strong>Shared modules</strong> (hooks / composables, utilities, styles) and <strong>dead code</strong>.</li>
+  </ol>
+  <ol data-l="fr">
+    <li><strong>Résumé</strong> : framework et version, périmètre, chiffres, code mort.</li>
+    <li><strong>Fort impact</strong> : composants et modules qui atteignent 50 % des pages ou plus.</li>
+    <li><strong>Routes</strong> : une ligne par route avec son fichier, ses enveloppes propres et les composants qu’elle rend ; les enveloppes communes à toutes les pages ne sont écrites qu’une fois.</li>
+    <li><strong>Layouts et enveloppes</strong> avec les pages qu’ils englobent.</li>
+    <li><strong>Un bloc <code>### &lt;Composant&gt;</code> par composant</strong> : fichier, pages impactées, props et leurs valeurs (<code>variant: "primary"×2 | "danger"×1 | unset×2</code>), chaque utilisation en <code>fichier:ligne</code> avec son code.</li>
+    <li><strong>Modules partagés</strong> (hooks / composables, utilitaires, styles) et <strong>code mort</strong>.</li>
+  </ol>
+
+  <h3><span data-l="en">Make your assistant use it</span><span data-l="fr">Faire lire la carte à votre assistant</span></h3>
+  <p data-l="en">A file in <code>docs/</code> is not read automatically. Reference it in the instructions file of your assistant — <code>AGENTS.md</code> (read by several tools), <code>CLAUDE.md</code>, <code>.cursor/rules</code> or <code>.github/copilot-instructions.md</code>:</p>
+  <p data-l="fr">Un fichier dans <code>docs/</code> n’est pas lu automatiquement. Référencez-le dans le fichier d’instructions de votre assistant — <code>AGENTS.md</code> (lu par plusieurs outils), <code>CLAUDE.md</code>, <code>.cursor/rules</code> ou <code>.github/copilot-instructions.md</code> :</p>
+  <div class="code"><span class="lang-label">AGENTS.md</span><pre><code>Before changing a component or module, read docs/impact-map.md
+(components, usages, impacted pages). Regenerate it with `npm run analyse:generate`.</code></pre></div>
+  <p data-l="en">The output is written in English (cheaper in tokens, the usual working language of assistants) and is deterministic: no timestamp, fixed order. An unchanged project gives an identical file, so git diffs only show real structural changes. Assistants search <code>### &lt;Button&gt;</code> or a file path and read one block instead of the whole file.</p>
+  <p data-l="fr">La sortie est en anglais (moins coûteux en tokens, langue de travail habituelle des assistants) et déterministe : pas d’horodatage, ordre fixe. Un projet inchangé donne un fichier identique, donc les diffs git ne montrent que les vrais changements de structure. Les assistants cherchent <code>### &lt;Button&gt;</code> ou un chemin de fichier et lisent un seul bloc au lieu du fichier entier.</p>
+</section>
+
+<!-- ============================================================ CI -->
+<section id="ci">
+  <h2><span data-l="en">CI / pull requests</span><span data-l="fr">CI / pull requests</span></h2>
+  <p data-l="en"><code>--since &lt;ref&gt;</code> analyses what a pull request contains (merge-base with the ref) and writes a Markdown summary ready to post as a comment. Changes to global files (framework config, <code>package.json</code>, <code>.env*</code>…) are flagged separately.</p>
+  <p data-l="fr"><code>--since &lt;ref&gt;</code> analyse le contenu d’une pull request (merge-base avec la ref) et écrit un résumé Markdown prêt à poster en commentaire. Les modifications de fichiers globaux (config du framework, <code>package.json</code>, <code>.env*</code>…) sont signalées à part.</p>
+  <div class="code"><span class="lang-label">.github/workflows/impact.yml</span><pre><code><span class="k">name</span>: impact
+<span class="k">on</span>: pull_request
+<span class="k">jobs</span>:
+  <span class="k">impact</span>:
+    <span class="k">runs-on</span>: ubuntu-latest
+    <span class="k">steps</span>:
+      - <span class="k">uses</span>: actions/checkout@v4
+        <span class="k">with</span>: { <span class="k">fetch-depth</span>: 0 }          <span class="c"># history needed for --since</span>
+      - <span class="k">uses</span>: actions/setup-node@v4
+        <span class="k">with</span>: { <span class="k">node-version</span>: 22 }
+      - <span class="k">run</span>: npm ci
+      - <span class="k">run</span>: npx impact-analyser impact --since origin/${{ github.base_ref }} --format md &gt; impact.md
+      - <span class="k">run</span>: npx impact-analyser generate --check   <span class="c"># optional: AI map up to date</span>
+      - <span class="k">run</span>: gh pr comment ${{ github.event.number }} --body-file impact.md
+        <span class="k">env</span>: { <span class="k">GH_TOKEN</span>: ${{ github.token }} }</code></pre></div>
+</section>
+
+<!-- ============================================================ API -->
+<section id="api">
+  <h2><span data-l="en">Programmatic API</span><span data-l="fr">API programmatique</span></h2>
+  <p data-l="en">Everything the CLI does is available from Node.js (ES modules, typed):</p>
+  <p data-l="fr">Tout ce que fait la CLI est disponible depuis Node.js (modules ES, typés) :</p>
+  <div class="code"><pre><code><span class="k">import</span> { analyze, impact, componentImpact, formatImpactMap, loadConfig } <span class="k">from</span> <span class="s">'impact-analyser'</span>;
+
+<span class="k">const</span> { config } = <span class="k">await</span> loadConfig(<span class="s">'path/to/app'</span>);
+<span class="k">const</span> graph = analyze(<span class="s">'path/to/app'</span>, { include: config.include, exclude: config.exclude });
+
+graph.framework;           <span class="c">// { name: 'next' | 'nuxt', version, major }</span>
+graph.routes;              <span class="c">// [{ router, kind, path, file, wrappers }]</span>
+graph.components;          <span class="c">// { 'src/ui/Button.tsx#Button': { name, module, usages: [{ module, line, props }] } }</span>
+
+impact(graph, [<span class="s">'src/components/ui/Card.tsx'</span>]).routes;          <span class="c">// [{ route, entry, chain }]</span>
+componentImpact(graph, <span class="s">'src/components/ui/Button.tsx#Button'</span>).routes;
+formatImpactMap(graph);    <span class="c">// the Markdown of docs/impact-map.md</span></code></pre></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th><span data-l="en">Function</span><span data-l="fr">Fonction</span></th><th><span data-l="en">Role</span><span data-l="fr">Rôle</span></th></tr></thead>
+    <tbody>
+      <tr><td><code>analyze(dir, options)</code></td><td><span data-l="en">Builds the graph: routes, modules, components, roles, dead code.</span><span data-l="fr">Construit le graphe : routes, modules, composants, rôles, code mort.</span></td></tr>
+      <tr><td><code>impact(graph, files)</code></td><td><span data-l="en">Routes impacted by files, with dependency paths.</span><span data-l="fr">Routes impactées par des fichiers, avec les chemins de dépendance.</span></td></tr>
+      <tr><td><code>componentImpact(graph, id)</code></td><td><span data-l="en">Routes impacted by one component (only what uses this export).</span><span data-l="fr">Routes impactées par un composant (seulement ce qui utilise cet export).</span></td></tr>
+      <tr><td><code>rankComponents</code> / <code>rankModules</code></td><td><span data-l="en">Components and modules sorted by impacted pages.</span><span data-l="fr">Composants et modules triés par pages impactées.</span></td></tr>
+      <tr><td><code>changedFilesSince</code> / <code>classifyChanges</code></td><td><span data-l="en">Git changes since a ref, split into analysed / global / unused files.</span><span data-l="fr">Changements git depuis une ref, répartis en fichiers analysés / globaux / inutilisés.</span></td></tr>
+      <tr><td><code>formatImpactMap</code> / <code>formatImpactMarkdown</code></td><td><span data-l="en">The AI map and the pull request summary as Markdown.</span><span data-l="fr">La carte IA et le résumé de pull request en Markdown.</span></td></tr>
+      <tr><td><code>serve(options)</code></td><td><span data-l="en">Starts the explorer server.</span><span data-l="fr">Lance le serveur de l’explorateur.</span></td></tr>
+      <tr><td><code>loadConfig</code> / <code>defineConfig</code></td><td><span data-l="en">Reads / types the configuration.</span><span data-l="fr">Lit / type la configuration.</span></td></tr>
+      <tr><td><code>detectFramework(dir)</code></td><td><span data-l="en">Framework and version of a project.</span><span data-l="fr">Framework et version d’un projet.</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ METRICS -->
+<section id="metrics">
+  <h2><span data-l="en">How metrics are computed</span><span data-l="fr">Calcul des indicateurs</span></h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th><span data-l="en">Metric</span><span data-l="fr">Indicateur</span></th><th><span data-l="en">Definition</span><span data-l="fr">Définition</span></th></tr></thead>
+    <tbody>
+      <tr><td><span data-l="en">Impacted pages</span><span data-l="fr">Pages impactées</span></td><td><span data-l="en">Distinct URLs whose render can change: pages rendering the element directly, through other components, or through a layout / wrapper. Parallel-route slots count as part of their URL; API routes are excluded.</span><span data-l="fr">URL distinctes dont le rendu peut changer : pages qui rendent l’élément directement, via d’autres composants, ou via un layout / une enveloppe. Les slots de routes parallèles comptent dans leur URL ; les routes API sont exclues.</span></td></tr>
+      <tr><td><span data-l="en">Impact level</span><span data-l="fr">Niveau d’impact</span></td><td><span data-l="en">Impacted pages / total pages. High ≥ 50%, moderate ≥ 20%, low below.</span><span data-l="fr">Pages impactées / total des pages. Élevé ≥ 50 %, modéré ≥ 20 %, faible en dessous.</span></td></tr>
+      <tr><td><span data-l="en">Precision</span><span data-l="fr">Précision</span></td><td><span data-l="en">Per export name: importing <code>Button</code> through a barrel does not depend on <code>Modal</code>; <code>&lt;Icons.Cart /&gt;</code> only depends on <code>Cart</code>.</span><span data-l="fr">Par nom d’export : importer <code>Button</code> via un barrel ne crée pas de dépendance à <code>Modal</code> ; <code>&lt;Icons.Cart /&gt;</code> ne dépend que de <code>Cart</code>.</span></td></tr>
+      <tr><td><span data-l="en">Variants</span><span data-l="fr">Variantes</span></td><td><span data-l="en">A prop is a variant when it takes at least two distinct values across usages (unset and runtime expressions included) and its literal values are reused or token-like (<code>primary</code>, <code>sm</code>, <code>true</code>). Event handlers and technical attributes (<code>className</code>, <code>style</code>, <code>id</code>, <code>aria-*</code>, <code>data-*</code>…) are excluded.</span><span data-l="fr">Une prop est une variante si elle prend au moins deux valeurs distinctes sur l’ensemble des utilisations (non défini et expressions inclus) et si ses valeurs littérales sont réutilisées ou de type jeton (<code>primary</code>, <code>sm</code>, <code>true</code>). Les gestionnaires d’événements et les attributs techniques (<code>className</code>, <code>style</code>, <code>id</code>, <code>aria-*</code>, <code>data-*</code>…) sont exclus.</span></td></tr>
+      <tr><td><span data-l="en">Dead code</span><span data-l="fr">Code mort</span></td><td><span data-l="en">Files no route reaches (directly or transitively) and exported components never rendered.</span><span data-l="fr">Fichiers qu’aucune route n’atteint (directement ou transitivement) et composants exportés jamais rendus.</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ SECURITY -->
+<section id="security">
+  <h2><span data-l="en">Security</span><span data-l="fr">Sécurité</span></h2>
+  <ul data-l="en">
+    <li><strong>Nothing ships to production.</strong> impact-analyser adds nothing to your app (no plugin, middleware, component or route) and has no install script: it only runs when you call it. Installed as a dev dependency, <code>npm ci --omit=dev</code> does not even install it.</li>
+    <li><strong>Local and read-only explorer.</strong> It listens on <code>127.0.0.1</code> only, never writes files, reads nothing outside its own folder and makes no external request.</li>
+    <li><strong>DNS rebinding protection.</strong> The explorer answers only requests addressed to <code>localhost</code>, <code>127.0.0.1</code> or <code>[::1]</code> on its own port, and refuses API calls coming from another site. For a forwarded remote environment, allow its domain: <code>"allowedHosts": ["my-codespace.app.github.dev"]</code>.</li>
+    <li><strong>Security headers</strong> on the explorer: a Content-Security-Policy limited to the explorer itself, <code>X-Frame-Options: DENY</code>, <code>nosniff</code>, no referrer.</li>
+    <li>These rules apply to the impact-analyser server only: your app, its dev server and the APIs it calls are not affected.</li>
+    <li>Do not publish the output of <code>analyze</code> or the AI map in a public folder (<code>public/</code>, <code>static/</code>): they contain paths and excerpts of your code.</li>
+  </ul>
+  <ul data-l="fr">
+    <li><strong>Rien ne part en production.</strong> impact-analyser n’ajoute rien à votre app (ni plugin, ni middleware, ni composant, ni route) et n’a aucun script d’installation : il ne s’exécute que quand vous l’appelez. Installé en dépendance de développement, <code>npm ci --omit=dev</code> ne l’installe même pas.</li>
+    <li><strong>Explorateur local et en lecture seule.</strong> Il n’écoute que sur <code>127.0.0.1</code>, n’écrit aucun fichier, ne lit rien en dehors de son propre dossier et ne fait aucun appel externe.</li>
+    <li><strong>Protection contre le rebinding DNS.</strong> L’explorateur ne répond qu’aux requêtes adressées à <code>localhost</code>, <code>127.0.0.1</code> ou <code>[::1]</code> sur son propre port, et refuse les appels d’API venant d’un autre site. Pour un environnement distant redirigé, autorisez son domaine : <code>"allowedHosts": ["mon-codespace.app.github.dev"]</code>.</li>
+    <li><strong>En-têtes de sécurité</strong> sur l’explorateur : Content-Security-Policy limitée à l’explorateur lui-même, <code>X-Frame-Options: DENY</code>, <code>nosniff</code>, pas de referrer.</li>
+    <li>Ces règles ne concernent que le serveur d’impact-analyser : votre app, son serveur de dev et les API qu’elle appelle ne sont pas touchés.</li>
+    <li>Ne publiez pas la sortie d’<code>analyze</code> ni la carte IA dans un dossier public (<code>public/</code>, <code>static/</code>) : elles contiennent des chemins et des extraits de votre code.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ LIMITS -->
+<section id="limits">
+  <h2><span data-l="en">Limits & troubleshooting</span><span data-l="fr">Limites & dépannage</span></h2>
+  <h3><span data-l="en">What static analysis cannot see</span><span data-l="fr">Ce que l’analyse statique ne voit pas</span></h3>
+  <ul data-l="en">
+    <li>Relations that only exist at runtime: imports built from strings, <code>&lt;component :is&gt;</code>, React context / Vue <code>provide</code>–<code>inject</code>, components passed as props.</li>
+    <li>Internal packages of a monorepo (<code>@acme/ui</code>) are seen as npm packages: their components are not detailed.</li>
+  </ul>
+  <ul data-l="fr">
+    <li>Les relations qui n’existent qu’à l’exécution : imports construits à partir de chaînes, <code>&lt;component :is&gt;</code>, context React / <code>provide</code>–<code>inject</code> Vue, composants passés en props.</li>
+    <li>Les packages internes d’un monorepo (<code>@acme/ui</code>) sont vus comme des packages npm : leurs composants ne sont pas détaillés.</li>
+  </ul>
+  <h3><span data-l="en">Common messages</span><span data-l="fr">Messages fréquents</span></h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th><span data-l="en">Message</span><span data-l="fr">Message</span></th><th><span data-l="en">What to do</span><span data-l="fr">Que faire</span></th></tr></thead>
+    <tbody>
+      <tr><td><code>No app/ or pages/ directory found</code><br><code>No pages/ directory nor app.vue found</code></td><td><span data-l="en">Run the command from the app root, or pass its folder (<code>impact-analyser ui apps/web</code>). For Nuxt, check that <code>nuxt</code> is declared in its <code>package.json</code> or set <code>"framework": "nuxt"</code>.</span><span data-l="fr">Lancez la commande depuis la racine de l’app, ou passez son dossier (<code>impact-analyser ui apps/web</code>). Pour Nuxt, vérifiez que <code>nuxt</code> est déclaré dans son <code>package.json</code> ou définissez <code>"framework": "nuxt"</code>.</span></td></tr>
+      <tr><td><span data-l="en">Unresolved imports (Dead code view)</span><span data-l="fr">Imports non résolus (vue Code mort)</span></td><td><span data-l="en">An alias is missing from <code>tsconfig</code> / <code>jsconfig</code> <code>paths</code>, or the file was moved.</span><span data-l="fr">Un alias manque dans les <code>paths</code> du <code>tsconfig</code> / <code>jsconfig</code>, ou le fichier a été déplacé.</span></td></tr>
+      <tr><td><span data-l="en">“Nuxt types not generated”</span><span data-l="fr">« Types Nuxt non générés »</span></td><td><span data-l="en">Run <code>nuxi prepare</code> (Nuxt 3/4) or <code>nuxt dev</code> (Nuxt 2) once.</span><span data-l="fr">Lancez une fois <code>nuxi prepare</code> (Nuxt 3/4) ou <code>nuxt dev</code> (Nuxt 2).</span></td></tr>
+      <tr><td><code>host not allowed</code></td><td><span data-l="en">Open the explorer through <code>localhost</code> / <code>127.0.0.1</code>, or add the remote domain to <code>allowedHosts</code>.</span><span data-l="fr">Ouvrez l’explorateur via <code>localhost</code> / <code>127.0.0.1</code>, ou ajoutez le domaine distant à <code>allowedHosts</code>.</span></td></tr>
+      <tr><td><code>impact-map.md is missing or outdated</code></td><td><span data-l="en">Run <code>npm run analyse:generate</code> and commit the file.</span><span data-l="fr">Lancez <code>npm run analyse:generate</code> et commitez le fichier.</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  <span data-l="en">impact-analyser — MIT license.</span><span data-l="fr">impact-analyser — licence MIT.</span>
+</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } },
+  };
+
+  // ---------------------------------------------------------- language: ?lang=, saved choice, browser language
+  function setLang(lang, save) {
+    if (lang !== 'fr' && lang !== 'en') lang = 'en';
+    document.documentElement.setAttribute('data-lang', lang);
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === lang));
+    });
+    if (save) {
+      store.set('impact-analyser-docs:lang', lang);
+      var url = new URL(location.href);
+      url.searchParams.set('lang', lang);
+      history.replaceState(null, '', url);
+    }
+  }
+  var param = new URLSearchParams(location.search).get('lang');
+  setLang(param || store.get('impact-analyser-docs:lang') || ((navigator.language || '').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en'));
+  document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+    b.addEventListener('click', function () { setLang(b.getAttribute('data-set-lang'), true); });
+  });
+
+  // ---------------------------------------------------------- framework tabs (#next / #nuxt, saved choice)
+  document.querySelectorAll('[data-tabs]').forEach(function (group) {
+    var tabs = group.querySelectorAll('[data-tab]');
+    function select(name, save) {
+      var found = false;
+      tabs.forEach(function (t) { if (t.getAttribute('data-tab') === name) found = true; });
+      if (!found) return;
+      tabs.forEach(function (t) {
+        var on = t.getAttribute('data-tab') === name;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+      });
+      group.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== name; });
+      if (save) store.set('impact-analyser-docs:framework', name);
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { select(t.getAttribute('data-tab'), true); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        var next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+        next.focus();
+        select(next.getAttribute('data-tab'), true);
+      });
+    });
+    // #nuxt, ?framework=nuxt (shareable links), else the last choice.
+    var hash = location.hash.slice(1);
+    var asked = new URLSearchParams(location.search).get('framework');
+    select(hash === 'next' || hash === 'nuxt' ? hash : asked === 'next' || asked === 'nuxt' ? asked : store.get('impact-analyser-docs:framework') || 'next');
+    if (hash === 'next' || hash === 'nuxt') document.getElementById('frameworks').scrollIntoView();
+  });
+
+  // ---------------------------------------------------------- copy buttons
+  document.querySelectorAll('.code').forEach(function (block) {
+    var button = document.createElement('button');
+    button.className = 'copy';
+    button.type = 'button';
+    var label = '<span data-l="en">Copy</span><span data-l="fr">Copier</span>';
+    button.innerHTML = label;
+    button.addEventListener('click', function () {
+      var text = block.querySelector('pre').innerText;
+      navigator.clipboard && navigator.clipboard.writeText(text).then(function () {
+        button.textContent = '✓';
+        setTimeout(function () { button.innerHTML = label; }, 1200);
+      });
+    });
+    block.appendChild(button);
+  });
+
+  // ---------------------------------------------------------- table of contents: active section, mobile menu
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var sections = links.map(function (a) { return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+  function onScroll() {
+    var current = sections[0];
+    sections.forEach(function (s) { if (s.getBoundingClientRect().top < 120) current = s; });
+    links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + current.id); });
+  }
+  document.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+  document.querySelector('.menu-btn').addEventListener('click', function () { document.body.classList.toggle('toc-open'); });
+  links.forEach(function (a) { a.addEventListener('click', function () { document.body.classList.remove('toc-open'); }); });
+})();
+</script>
+</body>
+</html>
